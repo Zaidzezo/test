@@ -1,0 +1,22 @@
+{
+  "name": "@deploygrid/database",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "7.3.0",
+    "@deploygrid/shared": "workspace:*",
+    "@prisma/adapter-pg": "7.3.0",
+    "pg": "8.17.2"
+  },
+  "devDependencies": {
+    "prisma": "7.3.0",
+    "@types/pg": "8.16.0"
+  }
+}

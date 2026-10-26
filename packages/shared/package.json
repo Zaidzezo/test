@@ -1,0 +1,13 @@
+{
+  "name": "@deploygrid/shared",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "3.25.76"
+  }
+}

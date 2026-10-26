@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+datasource db {
+  provider = "postgresql"
+}
+enum DeploymentStatus {
+  QUEUED
+  CLONING
+  BUILDING
+  STARTING
+  VERIFYING
+  SUCCEEDED
+  FAILED
+}
+enum RuntimeStatus {
+  NOT_DEPLOYED
+  RUNNING
+  STOPPED
+  DEGRADED
+  UNKNOWN
+}
+model Project {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  repositoryUrl String
+  branch String @default("")
+  containerPort Int @default(3000)
+  healthPath String @default("/")
+  runtimeStatus RuntimeStatus @default(NOT_DEPLOYED)
+  currentDeploymentId String? @unique
+  currentDeployment Deployment? @relation("Current", fields: [currentDeploymentId], references: [id], onDelete: SetNull)
+  activeDeploymentId String? @unique
+  activeDeployment Deployment? @relation("Active", fields: [activeDeploymentId], references: [id], onDelete: SetNull)
+  operationToken String?
+  deployments Deployment[] @relation("History")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Deployment {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation("History", fields: [projectId], references: [id], onDelete: Cascade)
+  currentFor Project? @relation("Current")
+  activeFor Project? @relation("Active")
+  repositoryUrl String
+  branch String
+  containerPort Int
+  healthPath String
+  status DeploymentStatus @default(QUEUED)
+  commitSha String?
+  imageTag String?
+  containerId String?
+  hostPort Int?
+  errorMessage String?
+  queuedAt DateTime @default(now())
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events DeploymentEvent[]
+  @@index([projectId, createdAt])
+  @@index([status])
+}
+model DeploymentEvent {
+  id Int @id @default(autoincrement())
+  deploymentId String
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  type String
+  level String @default("info")
+  message String
+  createdAt DateTime @default(now())
+  @@index([deploymentId, id])
+}

@@ -1,0 +1,32 @@
+{
+  "name": "deploygrid",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api dev\" \"pnpm --filter @deploygrid/worker dev\" \"pnpm --filter @deploygrid/web dev\"",
+    "db:generate": "pnpm --filter @deploygrid/database generate",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @deploygrid/database migrate",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "dotenv -e .env -- vitest run --exclude \"**/*.integration.test.ts\"",
+    "test:integration": "dotenv -e .env -- node scripts/test-integration.mjs",
+    "build": "pnpm db:generate && pnpm -r build",
+    "test:browser": "playwright test dashboard.spec.ts",
+    "test:browser:deploy": "playwright test deployment.spec.ts",
+    "start": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api exec tsx src/server.ts\" \"pnpm --filter @deploygrid/worker exec tsx src/worker.ts\" \"pnpm --filter @deploygrid/web start\""
+  },
+  "devDependencies": {
+    "@deploygrid/database": "workspace:*",
+    "@deploygrid/engine": "workspace:*",
+    "@deploygrid/shared": "workspace:*",
+    "@playwright/test": "1.58.1",
+    "@types/node": "22.19.7",
+    "concurrently": "9.2.1",
+    "dotenv-cli": "8.0.0",
+    "eslint": "9.39.2",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.53.1",
+    "vitest": "3.2.4"
+  }
+}

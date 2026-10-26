@@ -1,0 +1,25 @@
+import { test, expect } from '@playwright/test';
+test('creates a real project, streams a queued GitHub deployment, and exposes the app',async({page,request})=>{
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Workspace overview'})).toBeVisible();
+ await page.getByRole('link',{name:'New project',exact:true}).last().click();
+ const suffix=Date.now().toString();
+ await page.getByLabel('Project name',{exact:true}).fill('Docker welcome '+suffix);
+ await page.getByLabel('GitHub repository URL').fill(process.env.E2E_REPOSITORY_URL || 'https://github.com/docker/welcome-to-docker');
+ await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Docker welcome '+suffix,exact:true})).toBeVisible();
+ const projectId=new URL(page.url()).pathname.split('/').at(-1)!;
+ await page.getByRole('button',{name:'Deploy project',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Deployment details'})).toBeVisible();
+ await expect(page.locator('.terminal pre')).not.toHaveText('Waiting for output…',{timeout:20000});
+ await expect.poll(async()=>{const response=await request.get(`/api/projects/${projectId}/deployments`);const status=(await response.json())[0].status;return ['SUCCEEDED','FAILED'].includes(status)?status:'pending';},{timeout:240000,intervals:[2000]}).not.toBe('pending');
+ const result=await (await request.get(`/api/projects/${projectId}/deployments`)).json();expect(result[0].status,result[0].errorMessage??'Deployment failed').toBe('SUCCEEDED');
+ await page.getByRole('link',{name:'Back to project'}).click();
+ await expect(page.locator('.runtime-panel h2 a')).toBeVisible();
+ const response=await request.get(`/api/projects/${projectId}`);const p=await response.json();
+ expect((await request.get(`http://127.0.0.1:${p.currentDeployment.hostPort}`)).ok()).toBe(true);
+ await page.getByRole('button',{name:'Application logs',exact:true}).click();await expect(page.locator('.terminal pre')).not.toHaveText('Waiting for output…',{timeout:20000});
+ await page.screenshot({path:'docs/screenshots/project.png',fullPage:true});
+ await page.getByRole('link',{name:'All projects'}).click();await page.screenshot({path:'docs/screenshots/dashboard.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'docs/screenshots/mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});

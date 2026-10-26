@@ -1,0 +1,16 @@
+{
+  "name": "@deploygrid/engine",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deploygrid/shared": "workspace:*",
+    "@deploygrid/database": "workspace:*",
+    "bullmq": "5.66.5",
+    "ioredis": "5.9.2"
+  }
+}

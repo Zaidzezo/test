@@ -1,0 +1,3 @@
+# DeployGrid
+Trusted, single-operator local deployment platform. Next.js → Fastify → PostgreSQL/BullMQ → host worker → Docker. Never substitute fake deployments or metrics. Use strict TypeScript, Zod validation, shell:false argument arrays, short database transactions, labeled Docker resources, localhost bindings. Never prune globally, expose Docker TCP, or mount its socket in applications. Preserve previous successful containers until candidate readiness. No public multi-tenant security claim.
+Run pnpm typecheck, pnpm lint, pnpm test, pnpm test:integration and pnpm build. Docker integration requires an available engine. Current priority: tested P0 engine and connected dashboard. Keep PLANS.md current.

@@ -1,0 +1,16 @@
+{
+  "name": "@deploygrid/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/worker.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deploygrid/engine": "workspace:*",
+    "@deploygrid/database": "workspace:*",
+    "bullmq": "5.66.5",
+    "@deploygrid/shared": "workspace:*"
+  }
+}
