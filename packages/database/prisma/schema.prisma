@@ -36,6 +36,16 @@ model Project {
   activeDeployment Deployment? @relation("Active", fields: [activeDeploymentId], references: [id], onDelete: SetNull)
   operationToken String?
   deployments Deployment[] @relation("History")
+  variables ProjectVariable[]
+  healthChecks HealthCheck[]
+  desiredRunning Boolean @default(true)
+  healthFailures Int @default(0)
+  lastCheckedAt DateTime?
+  healthMessage String?
+  shareEnabled Boolean @default(false)
+  publicUrl String?
+  sharingStatus String @default("DISABLED")
+  sharingError String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -50,6 +60,12 @@ model Deployment {
   containerPort Int
   healthPath String
   status DeploymentStatus @default(QUEUED)
+  kind String @default("DEPLOY")
+  sourceDeploymentId String?
+  environmentSnapshot String?
+  cleanupPending Boolean @default(false)
+  cleanupError String?
+  workspacePath String?
   commitSha String?
   imageTag String?
   containerId String?
@@ -73,4 +89,26 @@ model DeploymentEvent {
   message String
   createdAt DateTime @default(now())
   @@index([deploymentId, id])
+}
+
+model ProjectVariable {
+ id String @id @default(cuid())
+ projectId String
+ project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+ name String
+ encryptedValue String
+ updatedAt DateTime @updatedAt
+ @@unique([projectId,name])
+}
+model HealthCheck {
+ id String @id @default(cuid())
+ projectId String
+ project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+ deploymentId String
+ status RuntimeStatus
+ httpStatus Int?
+ responseTimeMs Int?
+ message String?
+ checkedAt DateTime @default(now())
+ @@index([projectId,checkedAt])
 }

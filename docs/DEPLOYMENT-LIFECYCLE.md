@@ -2,10 +2,14 @@
 
 `QUEUED → CLONING → BUILDING → STARTING → VERIFYING → SUCCEEDED`
 
-Any nonterminal state may become FAILED. Terminal records never resume. A retry creates a new attempt. State updates and event insertions share a short transaction; conditional status updates detect concurrent changes. Failure updates the attempt, emits its error and releases only the matching active reservation.
+Any nonterminal state may become FAILED. A retry creates a new attempt; terminal history is not resumed. Project-row locking and conditional reservations serialize deployments against configuration changes and runtime actions without holding transactions across external work.
 
-The current application stays available while a candidate clones, builds, starts and verifies. Docker allocates a separate loopback port. A 2xx/3xx readiness response permits atomic promotion, successful completion, runtime RUNNING and reservation release. Only afterward does the previous container stop. A failed candidate is removed; the current pointer and previous runtime stay intact.
+Normal deployment clones the repository, records the SHA, builds its image, starts a constrained candidate with its encrypted variable snapshot, checks readiness, then atomically sets currentDeploymentId and releases the active slot. The gateway resolves the new current pointer on subsequent requests; its hostname remains stable. Existing keep-alive/WebSocket connections are not guaranteed uninterrupted when an old container stops.
 
-SUCCEEDED is deployment history, not a claim that the container remains healthy forever. Runtime RUNNING/STOPPED/UNKNOWN is observed separately. Controls never rewrite successful deployment history. Runtime operation failures append separate events. Dynamic host ports are inspected after start/restart.
+Rollback is a new ROLLBACK attempt referencing a previous successful source. It snapshots the source configuration, checks retained image ownership, records an explicit image-reuse event rather than claiming a rebuild, and follows candidate startup/readiness/promotion. A missing image or unreadable snapshot fails safely while preserving the existing current release.
 
-BullMQ can redeliver. Terminal jobs are no-ops; interrupted nonterminal attempts are failed conservatively instead of replaying uncertain external operations. Existing deterministic candidates are never duplicated. Reservations and job state drive reconciliation. Run one worker process per queue; concurrency within that process is configurable, but parallel builds have not been verified.
+After promotion the previous release is marked cleanupPending and its container stopped. Failure leaves the candidate FAILED and releases its reservation before cleanup. Cleanup errors are persisted for isolated retries. Temporary checkouts are removed independently of database logging. Images remain available until explicit project deletion/manual owner-scoped retention work.
+
+Deployment SUCCEEDED is historical completion, not perpetual runtime health. Background checks independently maintain RUNNING/DEGRADED/STOPPED and recovery events. Verified runtime controls update desiredRunning; dynamically allocated ports are inspected again after start/restart. Metrics reads do not overwrite health judgments.
+
+BullMQ delivery is at least once. Terminal jobs are no-ops. Interrupted in-progress attempts are failed conservatively after queue ownership is absent, rather than replaying uncertain builds. Full distributed lease fencing/multiple worker processes are outside the supported model.

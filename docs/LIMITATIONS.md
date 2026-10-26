@@ -1,14 +1,14 @@
 # Limitations
 
-- Trusted public GitHub code only; single operator; no authentication, tenant boundary or secure public hosting. Dockerfile builds have host-daemon power. No sandbox guarantee.
-- One local Docker host and one worker process per queue. Worker concurrency defaults to one; parallel deployments are not certified. Remote daemon networking, high availability and autoscaling are unsupported.
-- No private repository auth UI, runtime environment-variable editor, advanced secrets, webhook automation, cancellation or rollback. Re-deploy after failures.
-- No stable ingress URL: Docker allocates a different localhost port for candidates and may do so after restart. Sharing URLs beyond this machine is unsupported.
-- Limits apply to running application containers, not arbitrary Dockerfile build-time workloads. Build output and time are bounded, but build resource isolation is not a security boundary. Git timeout kills the CLI process; hard process crashes may leave helper processes/temp directories for manual inspection.
-- Image/history retention is manual. Logs are bounded per deployment and runtime responses, but total historical rows/images can grow as attempts accumulate. Never globally prune. Retain current images; remove only explicitly selected resources bearing this project's ownership labels.
-- A post-promotion failure to stop the old container produces a warning; automatic retry of that cleanup is deferred. Inspect the warning and stop only its labeled old container manually.
-- Runtime health reflects Docker operation verification and visible-page metrics polling, not continuous health monitoring. UNKNOWN indicates operation/inspection failure; running is not a permanent health guarantee.
-- Runtime operations use persistent tokens and BullMQ jobs but have no dedicated operation-history table. Failure details are attached to the current deployment; delete failures without a current deployment require worker logs.
-- Dashboard lists up to 100 projects; UI displays latest 50 deployment attempts. API history/log pagination supports additional reads. SSE history catch-up is bounded per batch; event retention changes are not yet implemented.
-- Application output may include sensitive data. Logs render as text, not HTML, but automatic arbitrary secret redaction is not attempted.
-- Public Dockerfiles that install packages need working in-build DNS, registry access and TLS trust. The bundled dependency-free fixture avoids that dependency. A third-party npm build failure is not evidence of a successful deployment.
+- Trusted public GitHub code and one local operator only. No account/organization system or secure public multi-tenant boundary. Keep the control-plane API/dashboard private.
+- One local Docker host and one worker process per queue. Parallel builds, Windows/macOS execution and full process-kill/stalled-lease recovery are not certified by the Linux cloud tests.
+- Public sharing uses temporary cloudflared quick tunnels. The machine/gateway/worker must stay online. There is no uptime guarantee, persistent named tunnel, custom public domain or automatic public HTTPS configuration beyond the tunnel provider. This runner blocks the native DNS needed by cloudflared, so a public connection is not reported as verified here.
+- Stable local `.localhost` names depend on browser/OS support. Chromium supports them; other clients may require hosts configuration. Direct Docker ports can still change, and existing long-lived connections may close when a replaced container stops.
+- No authentication for remote management, webhooks, cancellation, persistent application volumes, backup UI, private repository credentials, multi-host hosting or Kubernetes.
+- Environment variables are runtime-only, encrypted with one host-held key. Preserve/back up .env; losing that key prevents decryption. Key rotation is not implemented. Docker administrators can inspect runtime values. Literal redaction does not cover arbitrary encoded/transformed application output.
+- Dockerfile builds can execute arbitrary commands and are not subject to runtime container limits. Only trusted code should be deployed. Build time/output are bounded; this is not a sandbox guarantee.
+- Health checks are sampled, not continuous proofs of availability. The healthy-sample percentage describes the displayed sample window, not lifetime uptime. Health history is retained for seven days. Metrics history is in-memory while the view is open.
+- Cleanup retries stop previous containers or remove failed candidates; image/history retention controls remain manual. No global prune is used. Current/active resources are protected. SIGKILL can still leave host child processes or temporary files requiring operator inspection.
+- Runtime operations have persistent reservations but not a separate operation-history table. Failures are recorded on the current deployment or in worker logs when no current deployment exists.
+- Up to 100 services are listed in the workspace. Deployment/history and activity pages are bounded and paginated; total historical image/event storage can still grow.
+- No claim of zero-downtime deployment, exactly-once execution, database rollback, volume rollback or permanent free hosting.

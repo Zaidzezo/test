@@ -10,10 +10,12 @@
     "lint": "eslint .",
     "test": "dotenv -e .env -- vitest run --exclude \"**/*.integration.test.ts\"",
     "test:integration": "dotenv -e .env -- node scripts/test-integration.mjs",
-    "build": "pnpm db:generate && pnpm -r build",
-    "test:browser": "playwright test dashboard.spec.ts",
+    "build": "pnpm db:generate && dotenv -e .env -- pnpm -r build",
+    "test:browser": "dotenv -e .env -- node scripts/test-integration.mjs --browser dashboard.spec.ts platform-v2.spec.ts",
     "test:browser:deploy": "playwright test deployment.spec.ts",
-    "start": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api exec tsx src/server.ts\" \"pnpm --filter @deploygrid/worker exec tsx src/worker.ts\" \"pnpm --filter @deploygrid/web start\""
+    "start": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api exec tsx src/server.ts\" \"pnpm --filter @deploygrid/worker exec tsx src/worker.ts\" \"pnpm --filter @deploygrid/web start\"",
+    "setup:key": "node scripts/setup-key.mjs",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@deploygrid/database": "workspace:*",
@@ -24,6 +26,7 @@
     "concurrently": "9.2.1",
     "dotenv-cli": "8.0.0",
     "eslint": "9.39.2",
+    "prettier": "3.8.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.53.1",

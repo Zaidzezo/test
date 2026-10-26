@@ -12,6 +12,8 @@
   "include": [
     "tests/**/*.ts",
     "vitest*.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mts"
   ]
 }

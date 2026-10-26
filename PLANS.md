@@ -1,16 +1,15 @@
-# Implementation plan and outcome
+# DeployGrid v2 outcome
 
-- [x] Workspace, Prisma schema/SQL migration, PostgreSQL and Redis Compose services.
-- [x] Transactional scheduling, project-row lock, explicit state transitions, separate BullMQ worker and real Git/Docker adapter.
-- [x] Candidate health checks, promotion, failure preservation/cleanup and conservative interrupted-attempt recovery.
-- [x] REST/SSE, bounded logs, runtime controls, deletion and actual Docker metrics.
-- [x] Responsive Next.js dashboard, project configuration/settings and deployment terminal.
-- [x] Strict type checking, ESLint, 26 unit tests, 6 actual API/database/Docker integration tests and production build.
-- [x] Chromium browser test of validation, real failure logs, settings, deletion and mobile layout, including production-server run.
-- [x] README, architecture, lifecycle, decisions, limitations, verification evidence and screenshots.
-- [x] Reusable cloud install/start instructions and required Prisma download domain saved to configuration draft.
-- [ ] Successful public-GitHub browser deployment: blocked by upstream proxy 503 and an earlier sample Dockerfile npm failure; not claimed complete.
-- [ ] Full worker process-kill/stalled-lock recovery and actual SSE disconnect/catch-up acceptance tests.
-- [ ] New-machine restoration and Windows/macOS verification.
+- [x] Independent checkout cleanup, retryable log batches, isolated reconciliation errors and persisted Docker cleanup retries.
+- [x] AES-256-GCM write-only environment variables and immutable encrypted deployment snapshots, with an idempotent local key setup command.
+- [x] Retained-image rollback through reservations, ownership verification, candidate readiness and atomic promotion.
+- [x] Stable loopback application gateway with HTTP path/query/stream and upgrade forwarding.
+- [x] Background health checks, desired running state, consecutive-failure handling, recovery events and health history independent of dashboard polling.
+- [x] Opt-in real cloudflared process management and application-only routing, explicit public confirmation and accurate missing-binary/network errors.
+- [x] Render-inspired service-oriented frontend with searchable/filterable workspace table, grid/list controls, service navigation, environment/networking/health panels, real metrics, activity feed and native confirmation dialogs.
+- [x] Compatible additive migration, existing data/key preservation checks, source formatting, Windows upgrade instructions and evidence documentation.
+- [x] Frozen dependency installation; 36 unit tests; 13 actual API/PostgreSQL/Docker/gateway tests; 2 Chromium browser tests; type checking, ESLint and production build.
+- [ ] Real public tunnel connection: attempted and blocked by the runner's native DNS restrictions; not reported as passed. Default suite skips this opt-in external test.
+- [ ] Windows/macOS certification, multi-worker/parallel-build validation and full process-kill/stalled-lease acceptance tests remain limitations.
 
-See docs/VERIFICATION.md for exact outcomes. Do not label every acceptance criterion complete. P2 features remain intentionally deferred.
+Implemented scope is the six-item roadmap accepted in chat. GitHub webhooks, cancellation, persistent application volumes, retention controls, backup and remote-management authentication remain separate work. See docs/VERIFICATION.md for precise test evidence and docs/LIMITATIONS.md for operational boundaries.
