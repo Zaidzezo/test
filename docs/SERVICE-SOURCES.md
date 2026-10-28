@@ -8,6 +8,8 @@ Enter a public HTTPS GitHub URL. **Load repository branches** performs a real `g
 
 **Root directory** scopes the Docker build context to that folder. Paths must be relative and cannot escape through `..`, absolute paths or symlinks. For Docker services, **Dockerfile path** is relative to that context. The container uses the repository Dockerfile's start command. Node mode generates a Dockerfile using `node:22-alpine`; Auto prefers a Dockerfile and otherwise uses Node. Other languages can use Docker mode; generated Python/Ruby/Go/Rust/Elixir runtimes are not implemented.
 
+For examples/node-native, use root directory `examples/node-native`, build command `node build.mjs` and start command `node server.mjs`.
+
 Node's blank build command defaults to `npm ci` when package-lock.json exists, otherwise `npm install`. Start defaults to `npm start`. Custom commands run under `/bin/sh -c` inside the container, never on the host. Choose a start command that forwards termination signals to its application process. There are runtime CPU/memory/PID limits and a build CLI timeout, but the host BuildKit builder does not yet have dedicated per-build resource isolation.
 
 `PORT` is injected from the configured container port and cannot be set as a user variable. If a previous service stored its own PORT variable, set Container port to that intended value; the injected value takes precedence.

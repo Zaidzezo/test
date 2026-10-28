@@ -19,7 +19,7 @@ An initial browser pass exposed a five-second log assertion that expired while D
 
 ## Boundaries
 
-Browser Git fixtures use the explicitly guarded isolated harness; production never accepts local repository paths. Real public branch discovery succeeded with `git ls-remote` and through the normal frontend/API against Zaidzezo/test; its returned main branch was selected in the inspected create-form screenshot. The optional normal-worker public-source smoke is documented in SERVICE-SOURCES.md; its separate result is recorded if executed below.
+Browser Git fixtures use the explicitly guarded isolated harness; production never accepts local repository paths. Real public branch discovery succeeded with `git ls-remote` and through the normal frontend/API against Zaidzezo/test; its returned main branch was selected in the inspected create-form screenshot. The normal-worker public-source smoke also passed: it discovered main through the API, cloned actual public commit 6ca95d8d283fa4b93f0a443c2480089c34c6637c, built examples/static-site with a variable, served the SPA route through the stable gateway, and deleted the temporary service. Node 24 fetch discarded the test client's Host override; the helper now uses node:http, matching the gateway integration tests. The app routing code required no change. This verifies a real public source, not Internet hosting or tunnel connectivity.
 
 Full Render parity is not claimed. Provider OAuth/tokens, other service types, additional generated runtimes, authenticated workspaces, cancellation/webhooks, custom TLS domains, replicas/disks/previews and shell remain open. Windows execution and public tunnel connectivity are not certified by this Linux run. See KNOWN-GAPS.md and ../AUDIT.md.
 

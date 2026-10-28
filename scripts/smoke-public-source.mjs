@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { request as httpRequest } from 'node:http';
 const api = `http://127.0.0.1:${process.env.API_PORT || 4000}/api`;
 const gateway = `http://127.0.0.1:${process.env.GATEWAY_PORT || 8080}`;
 const delay = () => new Promise((resolve) => setTimeout(resolve, 1000));
@@ -14,6 +15,27 @@ async function call(path, method = 'GET', body) {
 }
 const slug = 'public-static-smoke-' + Date.now();
 let project;
+// Node 24 fetch discards Host overrides; node:http supports virtual-host routing.
+function gatewayResponse(path) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      new URL(gateway + path),
+      { headers: { host: slug + '.localhost' } },
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (part) => {
+          body += part;
+        });
+        response.on('end', () => resolve({ status: response.statusCode, body }));
+        response.on('error', reject);
+      },
+    );
+    request.setTimeout(15000, () => request.destroy(new Error('Gateway request timed out')));
+    request.on('error', reject);
+    request.end();
+  });
+}
 try {
   const branch = await call('/repositories/branches', 'POST', {
     repositoryUrl: 'https://github.com/Zaidzezo/test',
@@ -47,11 +69,9 @@ try {
     await delay();
   }
   assert(done, 'Public deployment did not finish within smoke-test deadline');
-  const response = await fetch(gateway + '/dashboard/settings', {
-    headers: { host: slug + '.localhost' },
-  });
+  const response = await gatewayResponse('/dashboard/settings');
   assert.equal(response.status, 200);
-  assert((await response.text()).includes('Live public GitHub build'));
+  assert(response.body.includes('Live public GitHub build'));
   console.log(
     'Real production worker: cloned GitHub, built static assets with variables, served SPA route.',
   );
@@ -71,10 +91,7 @@ try {
       await delay();
     }
     assert(deleted, 'Smoke-test service cleanup did not finish');
-    assert.equal(
-      (await fetch(gateway + '/', { headers: { host: slug + '.localhost' } })).status,
-      404,
-    );
+    assert.equal((await gatewayResponse('/')).status, 404);
     console.log('Smoke-test service deleted; gateway route removed.');
   }
 }
