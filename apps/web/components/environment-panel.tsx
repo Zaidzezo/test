@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Plus, Trash2, Eye, EyeOff, Pencil, ShieldCheck } from 'lucide-react';
@@ -10,6 +11,8 @@ interface Variable {
   updatedAt: string;
 }
 export function EnvironmentPanel({ id, busy }: { id: string; busy: boolean }) {
+  const router = useRouter();
+  const [action, setAction] = useState<'save' | 'deploy'>('save');
   const client = useQueryClient();
   const [name, setName] = useState('');
   const [value, setValue] = useState('');
@@ -20,12 +23,17 @@ export function EnvironmentPanel({ id, busy }: { id: string; busy: boolean }) {
     queryFn: () => api<Variable[]>(`/projects/${id}/environment`),
   });
   const save = useMutation({
-    mutationFn: () => api(`/projects/${id}/environment`, 'PUT', { name, value }),
-    onSuccess: () => {
+    mutationFn: () =>
+      api<{ deploymentId: string | null }>(`/projects/${id}/environment`, 'POST', {
+        variables: [{ name, value }],
+        action,
+      }),
+    onSuccess: (result) => {
       setName('');
       setValue('');
       setSaved(true);
       void client.invalidateQueries({ queryKey: ['environment', id] });
+      if (result.deploymentId) router.push(`/projects/${id}/deployments/${result.deploymentId}`);
     },
   });
   const remove = useMutation({
@@ -130,7 +138,6 @@ export function EnvironmentPanel({ id, busy }: { id: string; busy: boolean }) {
             Value
             <div className="password-field">
               <input
-                required
                 type={visible ? 'text' : 'password'}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
@@ -151,6 +158,13 @@ export function EnvironmentPanel({ id, busy }: { id: string; busy: boolean }) {
             {save.isPending ? 'Saving…' : 'Save variable'}
           </Button>
         </div>
+        <label>
+          Apply changes
+          <select value={action} onChange={(e) => setAction(e.target.value as 'save' | 'deploy')}>
+            <option value="save">Save only</option>
+            <option value="deploy">Save and deploy</option>
+          </select>
+        </label>
         <p className="help">
           Existing values cannot be revealed. Enter a replacement to update a key.
         </p>

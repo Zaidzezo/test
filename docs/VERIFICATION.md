@@ -1,3 +1,20 @@
+# Render parity phase 1 verification — 2026-10-28
+
+- `pnpm typecheck`: passed for changed application/engine/shared code; final check also covers new tests.
+- `pnpm lint`: passed.
+- `pnpm test`: 44 passed, including eight parser/payload validation cases.
+- `pnpm test:integration`: 15 passed, one optional external public-sharing test skipped. Isolated PostgreSQL database and Redis queue; actual Git, Docker, readiness, gateway, logs and rollback. New coverage proves encrypted initial configuration is used by the first running app; atomic environment update reserves the matching deployment snapshot; busy updates do not overwrite that configuration; invalid create payload leaves no service.
+- `pnpm build`: passed for all packages and the production frontend. Existing nonfatal Next ESLint-plugin warning remains.
+- No schema change in this phase; existing migrations apply to the fresh test database.
+- `pnpm local`: actually launched against the existing local database; preserved the configured encryption key, found no pending migrations, and started all processes. API health returned ok; diagnostics returned database/redis/docker/worker=true; dashboard HTTP 200; unknown gateway host HTTP 404. Docker Desktop/Windows execution remains unverified in this Linux runner.
+
+- `pnpm test:browser`: 2 passed (2.4 minutes), using actual Docker deployments. Covered create-with-variables and immediate logs, actual clone failure and error state, settings save, deletion, atomic save-and-deploy, log text filtering/download, rollback, runtime logs, health, sharing failure, start/stop, stable application URL, workspace search/grid and activity events. No browser page errors in the successful deployment scenario.
+- Additional Chromium inspection: new variable editor rendered on desktop and at 390px without horizontal overflow; screenshot `docs/screenshots/phase1-create.png` inspected. This was an unsubmitted draft, not a fabricated live service.
+
+ The full requested signup/tenant isolation, webhook, static site and cancellation acceptance scenarios are not passed: they require later phases in RENDER-ROADMAP.md. Source findings and remaining risk are in ../AUDIT.md.
+
+---
+
 # DeployGrid v2 verification — 26 October 2026
 
 This is current-instance evidence, not a claim of production hosting, a fresh-machine restore, Windows certification or public multi-tenant security.

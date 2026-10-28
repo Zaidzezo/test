@@ -3,9 +3,11 @@ import type { ServerResponse } from 'node:http';
 import cors from '@fastify/cors';
 import { z, ZodError } from 'zod';
 import { db, Prisma } from '@deploygrid/database';
-import { projectSchema, AppError } from '@deploygrid/shared';
+import { projectSchema, createServiceSchema, AppError } from '@deploygrid/shared';
 import {
   reserveDeployment,
+  reserveDeploymentInTransaction,
+  encrypt,
   enqueue,
   projectInclude,
   scheduleOperation,
@@ -22,7 +24,7 @@ const cursorSchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 export async function buildApp() {
-  const app = Fastify({ logger: true, bodyLimit: 16384, requestTimeout: 15000 });
+  const app = Fastify({ logger: true, bodyLimit: 1048576, requestTimeout: 15000 });
   const streams = new Set<ServerResponse>();
   app.addHook('preClose', async () => {
     for (const stream of streams) stream.end();
@@ -91,11 +93,32 @@ export async function buildApp() {
       })
     ).map(projectDto),
   );
-  app.post('/api/projects', async (req, reply) =>
-    reply
+  app.post('/api/projects', async (req, reply) => {
+    const { variables, deploy, ...data } = createServiceSchema.parse(req.body);
+    const { project, deployment } = await db.$transaction(async (tx) => {
+      const project = await tx.project.create({ data });
+      if (variables.length)
+        await tx.projectVariable.createMany({
+          data: variables.map(({ name, value }) => ({
+            projectId: project.id,
+            name,
+            encryptedValue: encrypt(value),
+          })),
+        });
+      const deployment = deploy ? await reserveDeploymentInTransaction(tx, project.id) : null;
+      return { project, deployment };
+    });
+    if (deployment) {
+      try {
+        await enqueue(deployment.id, project.id);
+      } catch {
+        req.log.warn('First deployment persisted; worker will reconcile queue delivery');
+      }
+    }
+    return reply
       .code(201)
-      .send(projectDto(await db.project.create({ data: projectSchema.parse(req.body) }))),
-  );
+      .send({ ...projectDto(project), initialDeploymentId: deployment?.id ?? null });
+  });
   app.get('/api/projects/:id', async (req) =>
     projectDto(
       await db.project.findUniqueOrThrow({
@@ -167,7 +190,9 @@ export async function buildApp() {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Origin':
+        req.headers.origin && allowedOrigins.has(req.headers.origin) ? req.headers.origin : origin,
+      Vary: 'Origin',
       'X-Accel-Buffering': 'no',
       'Content-Encoding': 'identity',
     });

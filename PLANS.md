@@ -13,3 +13,11 @@
 - [ ] Windows/macOS certification, multi-worker/parallel-build validation and full process-kill/stalled-lease acceptance tests remain limitations.
 
 Implemented scope is the six-item roadmap accepted in chat. GitHub webhooks, cancellation, persistent application volumes, retention controls, backup and remote-management authentication remain separate work. See docs/VERIFICATION.md for precise test evidence and docs/LIMITATIONS.md for operational boundaries.
+
+# Render parity expansion
+
+User authorized a phased implementation on 2026-10-28. See docs/RENDER-ROADMAP.md for dependencies and AUDIT.md for findings. Current phase addresses atomic first deployment/configuration and log usability. Later phases remain open; do not describe this as full Render parity or multi-tenant hosting.
+
+Phase 1 validation: 44 unit tests, 15 real integration tests (one optional public-sharing test skipped), two real Chromium scenarios; production build, final typecheck and lint passed. No full Render parity or tenant isolation is claimed.
+
+Phase 1 launcher verified end to end against the existing local database. The normal development stack is running via pnpm local.

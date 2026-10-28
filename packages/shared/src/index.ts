@@ -120,3 +120,80 @@ export const variableSchema = z.object({
     .max(16384)
     .refine((value) => !value.includes('\0'), 'NUL bytes are not allowed'),
 });
+
+// One bounded payload for initial creation and atomic environment updates.
+export const variablesSchema = z
+  .array(variableSchema)
+  .max(50)
+  .superRefine((variables, ctx) => {
+    const names = new Set<string>();
+    for (const [index, variable] of variables.entries()) {
+      if (names.has(variable.name))
+        ctx.addIssue({ code: 'custom', path: [index, 'name'], message: 'Duplicate variable key' });
+      names.add(variable.name);
+    }
+  });
+export const createServiceSchema = projectSchema.extend({
+  variables: variablesSchema.default([]),
+  deploy: z.boolean().default(false),
+});
+export const environmentUpdateSchema = z
+  .object({
+    variables: variablesSchema,
+    remove: z.array(variableNameSchema).max(50).default([]),
+    action: z.enum(['save', 'deploy']).default('save'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.variables.some((v) => value.remove.includes(v.name)))
+      ctx.addIssue({ code: 'custom', message: 'Cannot save and remove the same key' });
+  });
+
+export type EnvironmentVariable = z.infer<typeof variableSchema>;
+// Parse data only: no shell expansion, interpolation, command substitution or evaluation.
+export function parseEnvironment(text: string): EnvironmentVariable[] {
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .replaceAll('\r\n', '\n')
+    .split('\n');
+  const result = new Map<string, EnvironmentVariable>();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('#')) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!match) throw new Error(`Invalid .env assignment at line ${i + 1}`);
+    const name = match[1];
+    let value = match[2];
+    const quote = value[0];
+    if (quote === '"' || quote === "'") {
+      let content = value.slice(1);
+      let end = -1;
+      for (;;) {
+        for (let n = 0; n < content.length; n++) {
+          if (quote === '"' && content[n] === '\\') {
+            n++;
+            continue;
+          }
+          if (content[n] === quote) {
+            end = n;
+            break;
+          }
+        }
+        if (end >= 0) break;
+        if (++i >= lines.length) throw new Error(`Unclosed quoted value for ${name}`);
+        content += '\n' + lines[i];
+      }
+      const trailing = content.slice(end + 1).trim();
+      if (trailing && !trailing.startsWith('#')) throw new Error(`Unexpected text after ${name}`);
+      value = content.slice(0, end);
+      if (quote === '"')
+        value = value.replace(
+          /\\(n|r|"|\\)/g,
+          (_, c: string) => ({ n: '\n', r: '\r', '"': '"', '\\': '\\' })[c]!,
+        );
+    } else value = value.replace(/\s+#.*$/, '').trim();
+    const parsed = variableSchema.safeParse({ name, value });
+    if (!parsed.success) throw new Error(`Invalid or reserved variable key: ${name}`);
+    result.set(name, parsed.data);
+  }
+  return variablesSchema.parse([...result.values()]);
+}

@@ -1,9 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '@deploygrid/database';
-import { AppError, variableSchema, variableNameSchema } from '@deploygrid/shared';
+import {
+  AppError,
+  variableSchema,
+  variableNameSchema,
+  environmentUpdateSchema,
+} from '@deploygrid/shared';
 import {
   saveVariable,
+  encrypt,
+  reserveDeploymentInTransaction,
   deleteVariable,
   reserveDeployment,
   enqueue,
@@ -33,6 +40,47 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
     const p = params.extend({ name: variableNameSchema }).parse(req.params);
     await deleteVariable(p.id, p.name);
     return reply.code(204).send();
+  });
+  app.post('/api/projects/:id/environment', async (req, reply) => {
+    const { id } = params.parse(req.params);
+    const body = environmentUpdateSchema.parse(req.body);
+    const deployment = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id"=${id} FOR UPDATE`;
+      const p = await tx.project.findUnique({ where: { id } });
+      if (!p) throw new AppError('NOT_FOUND', 'Service not found', 404);
+      if (p.activeDeploymentId || p.operationToken)
+        throw new AppError('PROJECT_BUSY', 'Wait for the active operation to finish.', 409);
+      for (const { name, value } of body.variables) {
+        const encryptedValue = encrypt(value);
+        await tx.projectVariable.upsert({
+          where: { projectId_name: { projectId: id, name } },
+          create: { projectId: id, name, encryptedValue },
+          update: { encryptedValue },
+        });
+      }
+      await tx.projectVariable.deleteMany({ where: { projectId: id, name: { in: body.remove } } });
+      const d = body.action === 'deploy' ? await reserveDeploymentInTransaction(tx, id) : null;
+      const eventTarget = d?.id ?? p.currentDeploymentId;
+      if (eventTarget)
+        await tx.deploymentEvent.create({
+          data: {
+            deploymentId: eventTarget,
+            type: 'configuration',
+            message: 'Environment updated',
+          },
+        });
+      return d;
+    });
+    if (deployment) {
+      try {
+        await enqueue(deployment.id, id);
+      } catch {
+        req.log.warn('Environment deployment persisted; worker will reconcile queue delivery');
+      }
+    }
+    return reply
+      .code(deployment ? 202 : 200)
+      .send({ saved: true, deploymentId: deployment?.id ?? null });
   });
   app.post('/api/projects/:id/rollback', async (req, reply) => {
     const { id } = params.parse(req.params);
@@ -86,7 +134,7 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
       .parse(req.query);
     return db.deploymentEvent.findMany({
       where: {
-        type: { in: ['state', 'health', 'runtime', 'warning'] },
+        type: { in: ['state', 'health', 'runtime', 'warning', 'configuration'] },
         ...(before ? { id: { lt: before } } : {}),
       },
       orderBy: { id: 'desc' },

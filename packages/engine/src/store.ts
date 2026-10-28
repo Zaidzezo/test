@@ -21,59 +21,65 @@ export async function transition(id: string, to: Status, message: string = to) {
   });
 }
 export async function reserveDeployment(projectId: string, sourceDeploymentId?: string) {
-  return db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT \"id\" FROM \"Project\" WHERE \"id\" = ${projectId} FOR UPDATE`;
-    const p = await tx.project.findUnique({ where: { id: projectId } });
-    if (!p) throw new AppError('NOT_FOUND', 'Project not found', 404);
-    if (p.activeDeploymentId || p.operationToken)
-      throw new AppError(
-        'PROJECT_BUSY',
-        'A deployment or runtime operation is already in progress.',
-        409,
-      );
-    const source = sourceDeploymentId
-      ? await tx.deployment.findFirst({
-          where: { id: sourceDeploymentId, projectId, status: 'SUCCEEDED' },
-        })
-      : null;
-    if (sourceDeploymentId && (!source?.imageTag || source.id === p.currentDeploymentId))
-      throw new AppError(
-        'INVALID_ROLLBACK',
-        'Choose a previous successful deployment with a retained image.',
-        409,
-      );
-    const snapshot = source
-      ? source.environmentSnapshot
-      : snapshotEnvironment(await tx.projectVariable.findMany({ where: { projectId } }));
-    const d = await tx.deployment.create({
-      data: {
-        projectId,
-        repositoryUrl: source?.repositoryUrl ?? p.repositoryUrl,
-        branch: source?.branch ?? p.branch,
-        containerPort: source?.containerPort ?? p.containerPort,
-        healthPath: source?.healthPath ?? p.healthPath,
-        environmentSnapshot: snapshot,
-        kind: source ? 'ROLLBACK' : 'DEPLOY',
-        sourceDeploymentId: source?.id,
-        commitSha: source?.commitSha,
-        imageTag: source?.imageTag,
-      },
-    });
-    const lock = await tx.project.updateMany({
-      where: { id: projectId, activeDeploymentId: null, operationToken: null },
-      data: { activeDeploymentId: d.id },
-    });
-    if (!lock.count)
-      throw new AppError(
-        'PROJECT_BUSY',
-        'A deployment or runtime operation is already in progress.',
-        409,
-      );
-    await tx.deploymentEvent.create({
-      data: { deploymentId: d.id, type: 'state', message: 'QUEUED' },
-    });
-    return d;
+  return db.$transaction((tx) => reserveDeploymentInTransaction(tx, projectId, sourceDeploymentId));
+}
+// Call only inside the same transaction as configuration changes.
+export async function reserveDeploymentInTransaction(
+  tx: Prisma.TransactionClient,
+  projectId: string,
+  sourceDeploymentId?: string,
+) {
+  await tx.$queryRaw`SELECT \"id\" FROM \"Project\" WHERE \"id\" = ${projectId} FOR UPDATE`;
+  const p = await tx.project.findUnique({ where: { id: projectId } });
+  if (!p) throw new AppError('NOT_FOUND', 'Project not found', 404);
+  if (p.activeDeploymentId || p.operationToken)
+    throw new AppError(
+      'PROJECT_BUSY',
+      'A deployment or runtime operation is already in progress.',
+      409,
+    );
+  const source = sourceDeploymentId
+    ? await tx.deployment.findFirst({
+        where: { id: sourceDeploymentId, projectId, status: 'SUCCEEDED' },
+      })
+    : null;
+  if (sourceDeploymentId && (!source?.imageTag || source.id === p.currentDeploymentId))
+    throw new AppError(
+      'INVALID_ROLLBACK',
+      'Choose a previous successful deployment with a retained image.',
+      409,
+    );
+  const snapshot = source
+    ? source.environmentSnapshot
+    : snapshotEnvironment(await tx.projectVariable.findMany({ where: { projectId } }));
+  const d = await tx.deployment.create({
+    data: {
+      projectId,
+      repositoryUrl: source?.repositoryUrl ?? p.repositoryUrl,
+      branch: source?.branch ?? p.branch,
+      containerPort: source?.containerPort ?? p.containerPort,
+      healthPath: source?.healthPath ?? p.healthPath,
+      environmentSnapshot: snapshot,
+      kind: source ? 'ROLLBACK' : 'DEPLOY',
+      sourceDeploymentId: source?.id,
+      commitSha: source?.commitSha,
+      imageTag: source?.imageTag,
+    },
   });
+  const lock = await tx.project.updateMany({
+    where: { id: projectId, activeDeploymentId: null, operationToken: null },
+    data: { activeDeploymentId: d.id },
+  });
+  if (!lock.count)
+    throw new AppError(
+      'PROJECT_BUSY',
+      'A deployment or runtime operation is already in progress.',
+      409,
+    );
+  await tx.deploymentEvent.create({
+    data: { deploymentId: d.id, type: 'state', message: 'QUEUED' },
+  });
+  return d;
 }
 export async function failDeployment(id: string, message: string) {
   await db.$transaction(async (tx) => {

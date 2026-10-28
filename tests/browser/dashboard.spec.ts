@@ -9,15 +9,14 @@ test('project form, actual failed deployment logs, settings, deletion and mobile
   await page.getByRole('link', { name: 'New service', exact: true }).last().click();
   await page.getByLabel('Project name', { exact: true }).fill(name);
   await page.getByLabel('GitHub repository URL').fill('https://gitlab.com/example/app');
-  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.getByRole('button', { name: 'Deploy Web Service', exact: true }).click();
   await expect(page.locator('.error[role=alert]')).toContainText('github.com');
   await page
     .getByLabel('GitHub repository URL')
     .fill('https://github.com/deploygrid-test-fixture/missing-' + Date.now());
-  await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  await page.getByRole('button', { name: 'Deploy project', exact: true }).click();
+  await page.getByRole('button', { name: 'Deploy Web Service', exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/deployments\/[^/]+$/);
+  const id = new URL(page.url()).pathname.split('/')[2];
   await expect(page.getByRole('heading', { name: 'Deployment details' })).toBeVisible();
   await expect(page.locator('.terminal pre')).toContainText('QUEUED', { timeout: 20000 });
   await expect

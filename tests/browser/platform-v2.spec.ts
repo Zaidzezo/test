@@ -13,19 +13,15 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
   await page.getByLabel('Project name', { exact: true }).fill(name);
   await page.getByLabel('GitHub repository URL').fill('https://github.com/deploygrid/fixture');
   await page.getByLabel('Health-check path').fill('/health');
-  await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  await page.getByRole('button', { name: 'Add environment variable', exact: true }).click();
+  await page.getByLabel('Variable key 1', { exact: true }).fill('GREETING');
+  await page.getByLabel('Variable value 1', { exact: true }).fill('hello-first-release');
+  await page.getByRole('button', { name: 'Deploy Web Service', exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/deployments\/[^/]+$/);
+  const id = new URL(page.url()).pathname.split('/')[2];
   async function tab(label: string) {
     await page.getByRole('link', { name: label, exact: true }).last().click();
   }
-  await tab('Environment');
-  await page.getByLabel('Key', { exact: true }).fill('GREETING');
-  await page.getByLabel('Value', { exact: true }).fill('hello-first-release');
-  await page.getByRole('button', { name: 'Save variable', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Variable saved');
-  await expect(page.locator('.masked-value')).toHaveText('••••••••••••••••');
-  await page.getByRole('button', { name: 'Deploy project', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Deployment details' })).toBeVisible();
   await expect(page.locator('.terminal pre')).toContainText('QUEUED', { timeout: 15000 });
   async function waitDeployment() {
@@ -44,6 +40,13 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
     expect(d.status, d.errorMessage ?? '').toBe('SUCCEEDED');
   }
   await waitDeployment();
+  await page.getByRole('searchbox', { name: 'Search logs' }).fill('Your service is live');
+  await expect(page.locator('.terminal pre')).toContainText('Your service is live');
+  await expect(page.locator('.terminal pre')).not.toContainText('Cloning from');
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download logs', exact: true }).click();
+  expect((await downloadEvent).suggestedFilename()).toBe('deploygrid-logs.txt');
+  await page.getByRole('searchbox', { name: 'Search logs' }).fill('');
   await page.getByRole('link', { name: 'Back to project' }).click();
   let p = await (await request.get(`/api/projects/${id}`)).json();
   const stable = p.applicationUrl;
@@ -57,9 +60,8 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
   await tab('Environment');
   await page.getByRole('button', { name: 'Replace GREETING' }).click();
   await page.getByLabel('Value', { exact: true }).fill('hello-second-release');
+  await page.getByLabel('Apply changes').selectOption('deploy');
   await page.getByRole('button', { name: 'Save variable', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Variable saved');
-  await page.getByRole('button', { name: 'Deploy latest commit', exact: true }).click();
   await waitDeployment();
   await page.getByRole('link', { name: 'Back to project' }).click();
   expect((await appBody()).message).toBe('hello-second-release');
@@ -82,6 +84,8 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
       { timeout: 15000 },
     )
     .toBeGreaterThan(0);
+  await tab('Application logs');
+  await expect(page.locator('.terminal pre')).toContainText('Example listening on');
   await tab('Health checks');
   await expect(page.locator('.health-strip .healthy').first()).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/v2-health.png', fullPage: true });
@@ -118,5 +122,8 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
   await page.screenshot({ path: 'docs/screenshots/v2-workspace.png', fullPage: true });
   await page.getByRole('button', { name: 'Grid view' }).click();
   await expect(page.locator('.project-card')).toHaveCount(1);
+  await page.goto('/activity');
+  await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
+  await expect(page.getByText('Environment updated', { exact: true }).first()).toBeVisible();
   expect(browserErrors).toEqual([]);
 });

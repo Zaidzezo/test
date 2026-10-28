@@ -70,14 +70,17 @@ export async function deploy(
     } else {
       directory = await mkdtemp(join(tmpdir(), 'deploygrid-'));
       await db.deployment.update({ where: { id }, data: { workspacePath: directory } });
+      log.append(`==> Cloning from ${d.repositoryUrl}\n`);
       await clone(d.repositoryUrl, d.branch, directory, log.append);
       const sha = await run('git', ['rev-parse', 'HEAD'], { cwd: directory });
-      for (const file of ['Dockerfile', 'package.json'])
+      log.append(`==> Checking out commit ${sha} in branch ${d.branch || 'repository default'}\n`);
+      for (const file of ['Dockerfile'])
         if (!(await stat(join(directory, file))).isFile())
           throw new Error(`Required root ${file} is missing`);
       image = imageName(p.id, id);
       await db.deployment.update({ where: { id }, data: { commitSha: sha, imageTag: image } });
       await transition(id, 'BUILDING');
+      log.append('==> Building Docker image from repository Dockerfile\n');
       await run(
         'docker',
         [
@@ -99,9 +102,11 @@ export async function deploy(
         },
       );
     }
+    log.append('==> Build successful\n==> Deploying...\n');
     await transition(id, 'STARTING');
     const candidate = await startCandidate(id, p.id, d.containerPort, image!, environment);
     await db.deployment.update({ where: { id }, data: candidate });
+    log.append(`==> Checking service readiness on port ${d.containerPort} at ${d.healthPath}\n`);
     await transition(id, 'VERIFYING');
     await verifyHealth(candidate.hostPort, d.healthPath, undefined, async () => {
       const c = await owned(candidate.containerId, p.id);
@@ -135,10 +140,11 @@ export async function deploy(
         });
     });
     promoted = true;
+    log.append('==> Your service is live\n');
     if (p.currentDeploymentId) await cleanupDeployment(p.currentDeploymentId);
   } catch (error) {
     const message = scrub(errorMessage(error));
-    log.append(message + '\n');
+    log.append(`==> Deployment failed: ${message}\n`);
     if (promoted) {
       await db.deploymentEvent.create({
         data: { deploymentId: id, type: 'warning', level: 'warning', message },

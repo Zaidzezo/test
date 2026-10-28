@@ -15,7 +15,8 @@
     "test:browser:deploy": "playwright test deployment.spec.ts",
     "start": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api exec tsx src/server.ts\" \"pnpm --filter @deploygrid/worker exec tsx src/worker.ts\" \"pnpm --filter @deploygrid/web start\"",
     "setup:key": "node scripts/setup-key.mjs",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "local": "node scripts/local.mjs"
   },
   "devDependencies": {
     "@deploygrid/database": "workspace:*",

@@ -1,0 +1,21 @@
+# Render parity audit
+
+Scope: source inspection of API, worker, queue, schema, Docker execution, gateway and dashboard; automated runtime evidence is recorded in docs/VERIFICATION.md. This is a phased implementation, not certification of the entire requested Render specification.
+
+| Severity | Finding / files | Root cause | Status |
+| --- | --- | --- | --- |
+| Critical for remote/multi-user hosting | No users, sessions, memberships or ownership checks (`apps/api/src/app.ts`, Prisma schema) | Existing architecture assumes a trusted local operator. Origin checks are not authentication. | OPEN: keep control plane bound to loopback; do not expose dashboard/API. Requires dedicated identity and authorization phase before remote management. |
+| High | First create cannot supply variables or start deployment (`project-form.tsx`, API create route) | Creation and configuration were separate operations. | FIXED in phase 1: validated, encrypted variables and first deployment reservation commit together; queue delivery follows commit, with existing reconciliation fallback. |
+| High | Environment save and deploy were separate requests (`environment-panel.tsx`, `platform-routes.ts`) | A concurrent operation could intervene between saving and snapshotting. | FIXED: row-locked atomic batch save/remove and optional deployment snapshot. Busy requests change nothing. |
+| Medium | SSE response advertises the wrong CORS origin for a permitted loopback alias (`app.ts`) | Hard-coded primary origin on hijacked response. | FIXED: selected allowlisted request origin and Vary header. |
+| Medium | Non-Node Docker repositories fail (`deploy.ts`) | Unnecessary root package.json requirement. | FIXED: only root Dockerfile required; runtime remains Docker, not an invented language detector. |
+| Medium | Logs have no download or search and keep following while reading older output (`terminal.tsx`) | Incomplete terminal controls. | FIXED for displayed bounded output: text search, download, scroll pause and jump to latest; copy failure shown. Server-side historical range/type/level filtering remains open. |
+| Medium | Environment changes absent from activity (`platform-routes.ts`) | No configuration event type in activity filter. | FIXED for batch endpoint: metadata-only event attached to new/current deployment. Legacy single-key endpoints and un-deployed service audit history require a service-level event model. |
+| High | Build environments differ from runtime environments (`deploy.ts`, `environment.ts`) | Variables are only injected during container creation. | OPEN: do not use build args for secrets; needs explicit BuildKit secret contract and build-time configuration UX. Create form states runtime-only. |
+| High | Resource limits cover runtime, not all BuildKit build resources (`deploy.ts`, `docker.ts`) | Docker CLI builds use host builder. | OPEN: trusted source only; dedicated restricted builders needed before untrusted/multi-user builds. Killing Docker CLI is not proof that a remote BuildKit task stopped. |
+| Medium | Frontend does not provide static sites, other service types, native runtime detection or provider connection | Existing model only represents Docker web services. | OPEN: phase 2; unavailable features are not shown as working controls. |
+| Medium | No cancellation/webhooks/exact-commit manual deployment | Queue lifecycle is failure/success oriented. | OPEN: phase 3; needs transactional cancellation fencing and signed webhook replay/idempotency handling. |
+| Medium | No TLS custom domains, autoscaling, idle sleep, volumes, previews or shell | Local single-container gateway architecture. | OPEN: phases 4–5; require lifecycle and security models, not cosmetic tabs. |
+| Low | Startup with stopped PostgreSQL/Redis produces cascading errors | Development command launches worker before dependency checks. | FIXED for the new documented `pnpm local` entry point: waits for Compose readiness before migrations and development servers. Bare `pnpm dev` still expects dependencies already running. |
+
+No tenant-isolation, signup, public-TLS or static-site acceptance test is claimed as passed. Public application tunnels do not expose or authenticate the control plane. Existing secret redaction masks known literal values; it cannot prevent deliberate encoding/exfiltration by application code.

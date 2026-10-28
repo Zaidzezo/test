@@ -1,3 +1,19 @@
+# Render parity update — phase 1
+
+This release implements the first phase of the expanded request. It is still a **trusted local operator** platform, with no signup or multi-user authorization. Keep the API/dashboard on loopback. See [AUDIT.md](AUDIT.md), [phased roadmap](docs/RENDER-ROADMAP.md), and [CHANGELOG.md](CHANGELOG.md).
+
+After installing dependencies (`pnpm install --frozen-lockfile`) and starting Docker Desktop, run:
+
+```powershell
+pnpm local
+```
+
+This preserves/creates `.env`, generates an encryption key only if missing, starts PostgreSQL/Redis, generates Prisma, applies migrations and launches the app. Open http://127.0.0.1:3000. For upgrades, first copy the previous `.env` into the new checkout; keep your existing Docker volumes. The individual commands below remain supported.
+
+Create a Docker web service, add runtime variables or import `.env`, and choose **Deploy Web Service**. The first attempt already contains the encrypted configuration. Existing services offer **Save only** or **Save and deploy** under Environment. These settings are runtime-only; build-time secrets and GitHub provider integration are not yet implemented. Public GitHub repositories with a root Dockerfile work across languages. Logs contain actual process output; search/download operate on the bounded output loaded in the viewer.
+
+---
+
 # DeployGrid
 
 **From repository to running application.**

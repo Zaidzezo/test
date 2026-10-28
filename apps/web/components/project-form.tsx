@@ -6,6 +6,8 @@ import { ArrowLeft, Github, Save } from 'lucide-react';
 import Link from 'next/link';
 import { api, type Project } from '../lib/api';
 import { ErrorBox } from './common';
+import { createServiceSchema, type EnvironmentVariable } from '@deploygrid/shared';
+import { VariableEditor } from './variable-editor';
 import { Button } from './ui/button';
 export function ProjectForm({ project }: { project?: Project }) {
   const router = useRouter();
@@ -14,25 +16,37 @@ export function ProjectForm({ project }: { project?: Project }) {
   const [branch, setBranch] = useState(project?.branch ?? '');
   const [port, setPort] = useState(project?.containerPort ?? 3000);
   const [health, setHealth] = useState(project?.healthPath ?? '/');
+  const [variables, setVariables] = useState<EnvironmentVariable[]>([]);
   const [saved, setSaved] = useState(false);
   const mutation = useMutation({
     mutationFn: () =>
-      api<Project>(project ? `/projects/${project.id}` : '/projects', project ? 'PATCH' : 'POST', {
-        name,
-        slug:
-          project?.slug ??
-          name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, ''),
-        repositoryUrl: repo,
-        branch,
-        containerPort: port,
-        healthPath: health,
-      }),
+      api<Project & { initialDeploymentId?: string }>(
+        project ? `/projects/${project.id}` : '/projects',
+        project ? 'PATCH' : 'POST',
+        createServiceSchema.parse({
+          name,
+          variables,
+          deploy: !project,
+          slug:
+            project?.slug ??
+            name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, ''),
+          repositoryUrl: repo,
+          branch,
+          containerPort: port,
+          healthPath: health,
+        }),
+      ),
     onSuccess: (p) => {
       setSaved(true);
-      if (!project) router.push(`/projects/${p.id}`);
+      if (!project)
+        router.push(
+          p.initialDeploymentId
+            ? `/projects/${p.id}/deployments/${p.initialDeploymentId}`
+            : `/projects/${p.id}`,
+        );
     },
   });
   return (
@@ -81,7 +95,9 @@ export function ProjectForm({ project }: { project?: Project }) {
             onChange={(e) => setRepo(e.target.value)}
             placeholder="https://github.com/you/your-app"
           />
-          <small>A root Dockerfile and package.json are required.</small>
+          <small>
+            A root Dockerfile is required. Any language supported by your Dockerfile can run.
+          </small>
         </label>
         <label>
           Branch
@@ -119,6 +135,7 @@ export function ProjectForm({ project }: { project?: Project }) {
           Your app must listen on 0.0.0.0 inside its container. Docker assigns an available
           localhost port automatically.
         </p>
+        {!project && <VariableEditor variables={variables} onChange={setVariables} />}
         <ErrorBox error={mutation.error} />
         {saved && (
           <p role="status" className="success">
@@ -127,7 +144,7 @@ export function ProjectForm({ project }: { project?: Project }) {
         )}
         <Button variant="default" disabled={mutation.isPending}>
           <Save size={16} />
-          {mutation.isPending ? 'Saving…' : project ? 'Save configuration' : 'Create project'}
+          {mutation.isPending ? 'Saving…' : project ? 'Save configuration' : 'Deploy Web Service'}
         </Button>
       </form>
     </>

@@ -368,3 +368,83 @@ describe('gateway streaming and tunnel boundaries', () => {
     expect((await db.project.findUniqueOrThrow({ where: { id: p.id } })).publicUrl).toBeNull();
   });
 });
+
+describe('first deployment configuration', () => {
+  it('atomically creates encrypted variables and the first attempt, then serves their values', async () => {
+    const secret = 'first-request-' + randomUUID();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: {
+        name: 'First deploy',
+        slug: 'first-' + randomUUID(),
+        repositoryUrl: 'https://github.com/deploygrid/fixture',
+        healthPath: '/health',
+        deploy: true,
+        variables: [{ name: 'GREETING', value: secret }],
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.body).not.toContain(secret);
+    const p = response.json();
+    ids.push(p.id);
+    expect(p.initialDeploymentId).toBeTruthy();
+    const attempt = await db.deployment.findUniqueOrThrow({ where: { id: p.initialDeploymentId } });
+    expect(deploymentEnvironment(attempt.environmentSnapshot).GREETING).toBe(secret);
+    await deploy(attempt.id, clone);
+    const ready = await db.deployment.findUniqueOrThrow({ where: { id: attempt.id } });
+    expect(ready.status, ready.errorMessage ?? '').toBe('SUCCEEDED');
+    const body = await (await fetch(`http://127.0.0.1:${ready.hostPort}/`)).json();
+    expect(body.message).toBe(secret);
+    const events = await app.inject({
+      method: 'GET',
+      url: `/api/deployments/${attempt.id}/logs?limit=500`,
+    });
+    expect(events.body).not.toContain(secret);
+    expect(events.body).toContain('Your service is live');
+    const update = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${p.id}/environment`,
+      payload: {
+        variables: [{ name: 'GREETING', value: 'replacement-value' }],
+        action: 'deploy',
+      },
+    });
+    expect(update.statusCode).toBe(202);
+    const next = await db.deployment.findUniqueOrThrow({
+      where: { id: update.json().deploymentId },
+    });
+    expect(deploymentEnvironment(next.environmentSnapshot).GREETING).toBe('replacement-value');
+    const busy = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${p.id}/environment`,
+      payload: {
+        variables: [{ name: 'GREETING', value: 'must-not-be-saved' }],
+        action: 'save',
+      },
+    });
+    expect(busy.statusCode).toBe(409);
+    await deploy(next.id, clone);
+    const persisted = await db.projectVariable.findFirstOrThrow({ where: { projectId: p.id } });
+    expect(persisted.encryptedValue).not.toContain('replacement-value');
+    expect(
+      await db.deploymentEvent.count({ where: { deploymentId: next.id, type: 'configuration' } }),
+    ).toBe(1);
+  }, 180000);
+  it('rejects invalid initial variables without leaving an empty service behind', async () => {
+    const slug = 'invalid-' + randomUUID();
+    const r = await app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: {
+        name: 'Invalid',
+        slug,
+        repositoryUrl: 'https://github.com/deploygrid/fixture',
+        deploy: true,
+        variables: [{ name: 'PATH', value: 'unsafe' }],
+      },
+    });
+    expect(r.statusCode).toBe(400);
+    expect(await db.project.count({ where: { slug } })).toBe(0);
+  });
+});
