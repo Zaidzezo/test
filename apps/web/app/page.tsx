@@ -27,11 +27,15 @@ export default function Dashboard() {
   });
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'grid'>('list');
+  const [type, setType] = useState('all');
   const [status, setStatus] = useState('all');
   const projects = q.data ?? [];
   const filtered = projects.filter(
     (p) =>
-      (p.name + ' ' + p.repositoryUrl).toLowerCase().includes(search.toLowerCase()) &&
+      (p.name + ' ' + p.repositoryUrl + ' ' + p.imageUrl)
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (type === 'all' || p.serviceType === type) &&
       (status === 'all' || p.runtimeStatus === status),
   );
   const running = projects.filter((p) => p.runtimeStatus === 'RUNNING').length;
@@ -123,6 +127,15 @@ export default function Dashboard() {
           <option value="STOPPED">Stopped</option>
           <option value="NOT_DEPLOYED">Not deployed</option>
         </select>
+        <select
+          aria-label="Filter services by type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="all">All service types</option>
+          <option value="WEB">Web Services</option>
+          <option value="STATIC">Static Sites</option>
+        </select>
         <div className="view-switch">
           <button
             className={view === 'list' ? 'active' : ''}
@@ -201,7 +214,10 @@ export default function Dashboard() {
                       </span>
                       <span>
                         <strong>{p.name}</strong>
-                        <small>Web service · Docker</small>
+                        <small>
+                          {p.serviceType === 'STATIC' ? 'Static site' : 'Web service'} ·{' '}
+                          {p.sourceType === 'IMAGE' ? 'Image' : p.runtime}
+                        </small>
                       </span>
                     </Link>
                   </td>
@@ -217,11 +233,13 @@ export default function Dashboard() {
                   <td>
                     <div className="source-cell">
                       <Github size={13} />
-                      {p.repositoryUrl.replace('https://github.com/', '')}
+                      {p.sourceType === 'IMAGE'
+                        ? p.imageUrl
+                        : p.repositoryUrl.replace('https://github.com/', '')}
                     </div>
                     <small className="branch-cell">
                       <GitBranch size={12} />
-                      {p.branch || 'default branch'}
+                      {p.sourceType === 'IMAGE' ? 'container image' : p.branch || 'default branch'}
                     </small>
                   </td>
                   <td>
@@ -260,7 +278,9 @@ export default function Dashboard() {
               </h3>
               <p>
                 <Github size={13} />
-                {p.repositoryUrl.replace('https://github.com/', '')}
+                {p.sourceType === 'IMAGE'
+                  ? p.imageUrl
+                  : p.repositoryUrl.replace('https://github.com/', '')}
               </p>
               <div className="card-bottom">
                 <span>

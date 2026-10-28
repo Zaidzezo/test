@@ -16,8 +16,27 @@ export async function cleanupDeployment(id: string) {
   if (!d) return;
   if (d.project.currentDeploymentId === id || d.project.activeDeploymentId === id) return;
   try {
-    if (d.status === 'FAILED') await removeCandidate(id, d.projectId);
-    else if (d.status === 'SUCCEEDED' && d.containerId) {
+    if (d.status === 'FAILED') {
+      await removeCandidate(id, d.projectId);
+      // A failed rollback shares a retained successful image; only a fresh failed build owns its tag.
+      if (
+        d.kind !== 'ROLLBACK' &&
+        d.imageTag &&
+        (await run('docker', ['images', '-q', d.imageTag]))
+      ) {
+        const images = JSON.parse(await run('docker', ['image', 'inspect', d.imageTag])) as {
+          Config: { Labels: Record<string, string> };
+        }[];
+        const labels = images[0]?.Config.Labels;
+        if (
+          labels?.['deploygrid.managed'] !== 'true' ||
+          labels['deploygrid.project'] !== d.projectId ||
+          labels['deploygrid.deployment'] !== id
+        )
+          throw new Error('Refusing to remove an unowned failed release image');
+        await run('docker', ['image', 'rm', d.imageTag]);
+      }
+    } else if (d.status === 'SUCCEEDED' && d.containerId) {
       // A missing old container is already clean; do not touch a container outside this project.
       const ids = await run('docker', [
         'ps',

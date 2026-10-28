@@ -24,3 +24,7 @@ Known gaps: AUDIT.md. Existing API compatibility is preserved: POST /api/project
 | 8 | Not implemented | Static sites and SPA rewrite |
 | 9 | Existing stop/start/delete and owned container/image cleanup | Typed-name deletion, suspended response, volumes/networks lifecycle |
 | 10 | Not implemented | Identity, workspace authorization, adversarial cross-tenant tests |
+
+## Phase 2A implementation
+
+Static sites/SPA rewrites, generated Node builds, public image sources, root/Dockerfile paths, real branch discovery and BuildKit secret mounts are now implemented; runtime evidence is in VERIFICATION.md. See SERVICE-SOURCES.md for configuration. Phase 2B remains open: other generated runtimes, provider/token integration, worker/private/cron/database types. Phases 3–5 are not complete.

@@ -55,6 +55,16 @@ export async function reserveDeploymentInTransaction(
   const d = await tx.deployment.create({
     data: {
       projectId,
+      serviceType: (source ?? p).serviceType,
+      sourceType: (source ?? p).sourceType,
+      runtime: (source ?? p).runtime,
+      imageUrl: (source ?? p).imageUrl,
+      rootDirectory: (source ?? p).rootDirectory,
+      dockerfilePath: (source ?? p).dockerfilePath,
+      buildCommand: (source ?? p).buildCommand,
+      startCommand: (source ?? p).startCommand,
+      publishDirectory: (source ?? p).publishDirectory,
+      spaFallback: (source ?? p).spaFallback,
       repositoryUrl: source?.repositoryUrl ?? p.repositoryUrl,
       branch: source?.branch ?? p.branch,
       containerPort: source?.containerPort ?? p.containerPort,

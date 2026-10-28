@@ -11,11 +11,27 @@ Scope: source inspection of API, worker, queue, schema, Docker execution, gatewa
 | Medium | Non-Node Docker repositories fail (`deploy.ts`) | Unnecessary root package.json requirement. | FIXED: only root Dockerfile required; runtime remains Docker, not an invented language detector. |
 | Medium | Logs have no download or search and keep following while reading older output (`terminal.tsx`) | Incomplete terminal controls. | FIXED for displayed bounded output: text search, download, scroll pause and jump to latest; copy failure shown. Server-side historical range/type/level filtering remains open. |
 | Medium | Environment changes absent from activity (`platform-routes.ts`) | No configuration event type in activity filter. | FIXED for batch endpoint: metadata-only event attached to new/current deployment. Legacy single-key endpoints and un-deployed service audit history require a service-level event model. |
-| High | Build environments differ from runtime environments (`deploy.ts`, `environment.ts`) | Variables are only injected during container creation. | OPEN: do not use build args for secrets; needs explicit BuildKit secret contract and build-time configuration UX. Create form states runtime-only. |
+| High | Build environments differ from runtime environments (`deploy.ts`, `environment.ts`) | Variables are only injected during container creation. | PARTIALLY FIXED in phase 2A: automatic Node/static BuildKit mounts and Dockerfile opt-in. See SERVICE-SOURCES.md; builds can still write values into public artifacts. Create form states runtime-only. |
 | High | Resource limits cover runtime, not all BuildKit build resources (`deploy.ts`, `docker.ts`) | Docker CLI builds use host builder. | OPEN: trusted source only; dedicated restricted builders needed before untrusted/multi-user builds. Killing Docker CLI is not proof that a remote BuildKit task stopped. |
-| Medium | Frontend does not provide static sites, other service types, native runtime detection or provider connection | Existing model only represents Docker web services. | OPEN: phase 2; unavailable features are not shown as working controls. |
+| Medium | Frontend does not provide static sites, other service types, native runtime detection or provider connection | Existing model only represents Docker web services. | PARTIALLY FIXED in phase 2A: static sites, native Node, public images, paths and branch discovery. Other service types and provider integration remain open. |
 | Medium | No cancellation/webhooks/exact-commit manual deployment | Queue lifecycle is failure/success oriented. | OPEN: phase 3; needs transactional cancellation fencing and signed webhook replay/idempotency handling. |
 | Medium | No TLS custom domains, autoscaling, idle sleep, volumes, previews or shell | Local single-container gateway architecture. | OPEN: phases 4–5; require lifecycle and security models, not cosmetic tabs. |
 | Low | Startup with stopped PostgreSQL/Redis produces cascading errors | Development command launches worker before dependency checks. | FIXED for the new documented `pnpm local` entry point: waits for Compose readiness before migrations and development servers. Bare `pnpm dev` still expects dependencies already running. |
 
 No tenant-isolation, signup, public-TLS or static-site acceptance test is claimed as passed. Public application tunnels do not expose or authenticate the control plane. Existing secret redaction masks known literal values; it cannot prevent deliberate encoding/exfiltration by application code.
+
+
+## Phase 2A follow-up
+
+- Build configuration is now an immutable deployment snapshot, including source/runtime/root/build/start/publish/SPA settings. Existing history gets compatible Docker/Git/Web defaults via an additive migration.
+- Static publishing, Node-generated builds and public-image sources are implemented. No static-site/provider/region controls are placeholders; only supported source/type options are shown.
+- Node/static build variables now use BuildKit secret mounts, outside the context, with literal log redaction and cache invalidation when variables change. Dockerfiles can explicitly consume the same mount. A build can still embed or encode a secret; public artifacts are not made secret-safe automatically.
+- Filesystem paths are validated at the API and resolved against the real repository root. Published symlinks are rejected; serving denies dotfiles and traversal. Only publish artifacts enter the static serving stage.
+- Settings validation and updates now share a row lock to prevent concurrent edits from creating a configuration that was never validated as a whole.
+- Remaining high risks are unchanged: no identity/tenant boundary, and host BuildKit lacks dedicated resource isolation. Worker/private/cron/database types and provider integration remain open portions of phase 2. See docs/SERVICE-SOURCES.md.
+
+- Phase 2A also removes only owned fresh images after failed releases (retained rollback images are preserved) and sanitizes temporary workspace paths in captured deployment diagnostics.
+
+- Native generated images now fix inherited source ownership before running as node; the real native deployment regression passes.
+- Multiline literal values are redacted as complete values and individual lines to protect line-oriented log persistence. Encoded/transformed output remains outside that guarantee.
+- Browser checks caught ambiguous select labels and stale hidden source fields; explicit names and source-specific payload construction fixed the create flow.

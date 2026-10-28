@@ -57,8 +57,9 @@ export function EnvironmentPanel({ id, busy }: { id: string; busy: boolean }) {
         <div>
           <strong>Encrypted at rest. Never returned by the API.</strong>
           <p>
-            Each deployment keeps its own configuration snapshot. Save changes, then deploy to apply
-            them. Rollback restores the selected release’s variables.
+            Each deployment keeps its own configuration snapshot. Variables are available at runtime
+            and during Node/static builds. Dockerfiles can opt into the BuildKit secret mount.
+            Rollback restores the selected release’s variables.
           </p>
         </div>
       </div>

@@ -26,6 +26,16 @@ model Project {
   name String
   slug String @unique
   repositoryUrl String
+  serviceType String @default("WEB")
+  sourceType String @default("GIT")
+  runtime String @default("DOCKER")
+  imageUrl String @default("")
+  rootDirectory String @default("")
+  dockerfilePath String @default("Dockerfile")
+  buildCommand String @default("")
+  startCommand String @default("")
+  publishDirectory String @default("dist")
+  spaFallback Boolean @default(false)
   branch String @default("")
   containerPort Int @default(3000)
   healthPath String @default("/")
@@ -56,6 +66,16 @@ model Deployment {
   currentFor Project? @relation("Current")
   activeFor Project? @relation("Active")
   repositoryUrl String
+  serviceType String @default("WEB")
+  sourceType String @default("GIT")
+  runtime String @default("DOCKER")
+  imageUrl String @default("")
+  rootDirectory String @default("")
+  dockerfilePath String @default("Dockerfile")
+  buildCommand String @default("")
+  startCommand String @default("")
+  publishDirectory String @default("dist")
+  spaFallback Boolean @default(false)
   branch String
   containerPort Int
   healthPath String

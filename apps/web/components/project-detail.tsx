@@ -92,20 +92,27 @@ export function ProjectDetail({ id }: { id: string }) {
           </span>
           <div>
             <div className="service-type">
-              WEB SERVICE <span>DOCKER</span>
+              {p.serviceType === 'STATIC' ? 'STATIC SITE' : 'WEB SERVICE'}{' '}
+              <span>{p.sourceType === 'IMAGE' ? 'IMAGE' : p.runtime}</span>
             </div>
             <div className="title-with-badge">
               <h1>{p.name}</h1>
               <Badge status={p.runtimeStatus} />
             </div>
             <p>
-              <a href={p.repositoryUrl} target="_blank" rel="noreferrer">
+              <a
+                href={p.sourceType === 'IMAGE' ? 'https://hub.docker.com/' : p.repositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
                 <Github size={13} />
-                {p.repositoryUrl.replace('https://github.com/', '')}
+                {p.sourceType === 'IMAGE'
+                  ? p.imageUrl
+                  : p.repositoryUrl.replace('https://github.com/', '')}
               </a>
               <span className="meta-sep">/</span>
               <GitBranch size={12} />
-              {p.branch || 'Default branch'}
+              {p.sourceType === 'IMAGE' ? 'Container image' : p.branch || 'Default branch'}
             </p>
           </div>
         </div>

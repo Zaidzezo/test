@@ -1,0 +1,8 @@
+{
+  "name": "deploygrid-native-example",
+  "private": true,
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node build.mjs"
+  }
+}

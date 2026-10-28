@@ -41,7 +41,9 @@ export function deploymentEnvironment(snapshot: string | null): Record<string, s
 }
 export function redact(text: string, values: Record<string, string>): string {
   let result = text;
-  for (const value of Object.values(values)
+  for (const value of [
+    ...new Set(Object.values(values).flatMap((value) => [value, ...value.split(/\r\n|\n|\r/)])),
+  ]
     .filter(Boolean)
     .sort((a, b) => b.length - a.length))
     result = result.replaceAll(value, '[REDACTED]');

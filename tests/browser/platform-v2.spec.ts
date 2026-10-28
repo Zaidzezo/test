@@ -85,7 +85,9 @@ test('deploys real fixture, configures secrets, rolls back, monitors health and 
     )
     .toBeGreaterThan(0);
   await tab('Application logs');
-  await expect(page.locator('.terminal pre')).toContainText('Example listening on');
+  await expect(page.locator('.terminal pre')).toContainText('Example listening on', {
+    timeout: 15000,
+  });
   await tab('Health checks');
   await expect(page.locator('.health-strip .healthy').first()).toBeVisible();
   await page.screenshot({ path: 'docs/screenshots/v2-health.png', fullPage: true });

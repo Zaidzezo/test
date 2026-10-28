@@ -1,29 +1,32 @@
-# Render parity update — phase 1
-
-This release implements the first phase of the expanded request. It is still a **trusted local operator** platform, with no signup or multi-user authorization. Keep the API/dashboard on loopback. See [AUDIT.md](AUDIT.md), [phased roadmap](docs/RENDER-ROADMAP.md), and [CHANGELOG.md](CHANGELOG.md).
-
-After installing dependencies (`pnpm install --frozen-lockfile`) and starting Docker Desktop, run:
-
-```powershell
-pnpm local
-```
-
-This preserves/creates `.env`, generates an encryption key only if missing, starts PostgreSQL/Redis, generates Prisma, applies migrations and launches the app. Open http://127.0.0.1:3000. For upgrades, first copy the previous `.env` into the new checkout; keep your existing Docker volumes. The individual commands below remain supported.
-
-Create a Docker web service, add runtime variables or import `.env`, and choose **Deploy Web Service**. The first attempt already contains the encrypted configuration. Existing services offer **Save only** or **Save and deploy** under Environment. These settings are runtime-only; build-time secrets and GitHub provider integration are not yet implemented. Public GitHub repositories with a root Dockerfile work across languages. Logs contain actual process output; search/download operate on the bounded output loaded in the viewer.
-
----
-
 # DeployGrid
 
 **From repository to running application.**
 
-A self-hosted deployment dashboard for trusted public GitHub Node.js applications. DeployGrid builds real Docker images, verifies candidates before promotion, exposes stable local application URLs, restores retained releases, and monitors application health in the background.
+A self-hosted deployment dashboard for trusted public GitHub repositories and public container images. Web services support repository Dockerfiles or generated Node builds; static sites publish built assets with optional SPA rewriting. DeployGrid builds real Docker images, verifies candidates before promotion, exposes stable local application URLs, restores retained releases, and monitors application health in the background.
 
 The refreshed interface takes inspiration from service-oriented infrastructure dashboards: a searchable service table, status filters, grid/list views, service-specific navigation, deployment history, live terminal, resource charts, encrypted environment configuration, networking controls, and health history. It uses real application data throughout.
 
+## Quick start
+
+Install Node.js 24, pnpm 11.25.0, Git and Docker Desktop (Linux containers). Start Docker Desktop and open a terminal in this repository:
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm local
+```
+
+Open http://127.0.0.1:3000. The launcher preserves/creates `.env`, generates an encryption key only when missing, waits for PostgreSQL/Redis, generates Prisma, applies migrations and starts the app.
+
+For upgrades, stop the old app, extract the new source and **copy your existing `.env` into the new folder before running these commands**. Keep the existing Docker volumes and encryption key. The service-source migration adds compatible defaults to existing services and deployment history.
+
+See the [service source guide](docs/SERVICE-SOURCES.md) for Node builds, static publish directories, SPA rewrites, public images, real branch discovery and BuildKit variables. Other languages work through your own Dockerfile. Create-time variables are saved before the first attempt; existing services support Save only or Save and deploy. Use encrypted variables rather than putting credentials in commands.
+
+[Audit](AUDIT.md) · [Changelog](CHANGELOG.md) · [Verification](docs/VERIFICATION.md) · [Known gaps vs Render](docs/KNOWN-GAPS.md) · [Remaining phases](docs/RENDER-ROADMAP.md)
+
 ## What is implemented
 
+- Static publish artifacts and SPA fallback, generated Node builds, public image releases, root/Dockerfile settings and real Git branch discovery.
+- BuildKit secret mounts for build variables; immutable build/source and environment snapshots for rollback.
 - Asynchronous Git → Docker build → candidate → HTTP readiness → atomic promotion through a separate BullMQ worker.
 - PostgreSQL project reservations and conditional state transitions prevent conflicting deployments and runtime operations.
 - Stable URLs such as `http://my-api.localhost:8080` through the built-in application gateway. HTTP paths/query strings, streamed responses, and WebSocket upgrades are forwarded to the current deployment. The API/dashboard are separate loopback listeners.
@@ -180,7 +183,7 @@ A quick tunnel needs outbound DNS and Cloudflare connectivity, has no uptime gua
 | CONTAINER_MEMORY / CONTAINER_CPUS / CONTAINER_PIDS | 512m / 1 / 128                                                            |
 | CLOUDFLARED_PATH                                   | Optional host cloudflared executable path                                 |
 
-Runtime variables are encrypted in PostgreSQL and passed to `docker create` using environment variable **names**, not values in CLI arguments. Host-process override names such as PATH, DOCKER_HOST, GIT_CONFIG_GLOBAL and NODE_OPTIONS are reserved. Variables are runtime-only; build-time secrets and Docker build arguments are intentionally not a feature.
+Runtime variables are encrypted in PostgreSQL and passed to `docker create` using environment variable **names**, not values in CLI arguments. Host-process override names such as PATH, DOCKER_HOST, GIT_CONFIG_GLOBAL and NODE_OPTIONS are reserved. Build variables use BuildKit secret mounts; see docs/SERVICE-SOURCES.md. Plaintext Docker build arguments for secrets are not provided.
 
 The operator's host and Docker daemon remain trusted: Docker inspection can expose a container's environment. Literal redaction cannot hide arbitrary encoded/transformed output produced by application code. Avoid logging secrets in applications.
 

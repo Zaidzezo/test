@@ -11,7 +11,7 @@
     "test": "dotenv -e .env -- vitest run --exclude \"**/*.integration.test.ts\"",
     "test:integration": "dotenv -e .env -- node scripts/test-integration.mjs",
     "build": "pnpm db:generate && dotenv -e .env -- pnpm -r build",
-    "test:browser": "dotenv -e .env -- node scripts/test-integration.mjs --browser dashboard.spec.ts platform-v2.spec.ts",
+    "test:browser": "dotenv -e .env -- node scripts/test-integration.mjs --browser dashboard.spec.ts platform-v2.spec.ts service-sources.spec.ts",
     "test:browser:deploy": "playwright test deployment.spec.ts",
     "start": "dotenv -e .env -- concurrently -k -n API,WORKER,WEB \"pnpm --filter @deploygrid/api exec tsx src/server.ts\" \"pnpm --filter @deploygrid/worker exec tsx src/worker.ts\" \"pnpm --filter @deploygrid/web start\"",
     "setup:key": "node scripts/setup-key.mjs",

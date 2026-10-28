@@ -194,7 +194,10 @@ describe('real Docker vertical slice', () => {
     const p = await newProject();
     const d = await reserveDeployment(p.id);
     await deploy(d.id, clone);
-    expect((await db.deployment.findUniqueOrThrow({ where: { id: d.id } })).status).toBe('FAILED');
+    const failed = await db.deployment.findUniqueOrThrow({ where: { id: d.id } });
+    expect(failed.status).toBe('FAILED');
+    expect(failed.cleanupPending, failed.cleanupError ?? '').toBe(false);
+    expect(await run('docker', ['images', '-q', failed.imageTag!])).toBe('');
     expect(
       await run('docker', ['ps', '-aq', '--filter', `label=deploygrid.deployment=${d.id}`]),
     ).toBe('');

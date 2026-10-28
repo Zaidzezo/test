@@ -28,6 +28,8 @@ if (
   throw new Error('Browser fixture runtime requires an isolated test database.');
 const directory = await mkdtemp(join(tmpdir(), 'deploygrid-browser-fixture-'));
 await cp(resolve('examples/node-api'), directory, { recursive: true });
+await cp(resolve('examples/static-site'), join(directory, 'site'), { recursive: true });
+await cp(resolve('examples/node-native'), join(directory, 'native'), { recursive: true });
 await run('git', ['init', directory]);
 await run('git', ['-C', directory, 'add', '.']);
 await run('git', [

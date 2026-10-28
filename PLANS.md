@@ -21,3 +21,9 @@ User authorized a phased implementation on 2026-10-28. See docs/RENDER-ROADMAP.m
 Phase 1 validation: 44 unit tests, 15 real integration tests (one optional public-sharing test skipped), two real Chromium scenarios; production build, final typecheck and lint passed. No full Render parity or tenant isolation is claimed.
 
 Phase 1 launcher verified end to end against the existing local database. The normal development stack is running via pnpm local.
+
+# Phase 2A — service sources
+
+Implement static sites, native Node builds, public image sources, root/Dockerfile settings, real branch discovery, BuildKit variables and immutable build snapshots. Verify static SPA behavior, build secrecy, symlink rejection, failure preservation, rollback/deletion and browser creation. Follow-on phase 2B (worker/private/cron/database types and provider integration) and phases 3–5 remain open. No auth/CDN/TLS claims.
+
+Phase 2A evidence: 64 unit tests, 20 integration tests (one optional tunnel skipped), three Chromium scenarios; type checking, lint and production build passed. Existing database migration preserved data/key, and normal production startup reported all four infrastructure components healthy. Native permissions, source switching, select labels, failed image cleanup and multiline redaction were corrected during verification.

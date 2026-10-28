@@ -1,4 +1,4 @@
-import { mkdtemp, stat } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { db } from '@deploygrid/database';
@@ -7,6 +7,7 @@ import { run } from './process.js';
 import { transition, failDeployment, LogBuffer } from './store.js';
 import { imageName, labels, startCandidate, verifyHealth, owned } from './docker.js';
 import { deploymentEnvironment, redact } from './environment.js';
+import { prepareBuild } from './build.js';
 import { cleanupDeployment, removeWorkspace } from './cleanup.js';
 export async function cloneRepository(
   url: string,
@@ -42,7 +43,15 @@ export async function deploy(
   let directory: string | undefined;
   let promoted = false;
   let environment: Record<string, string> = {};
-  const scrub = (text: string) => redact(text, environment);
+  const scrub = (text: string) =>
+    redact(
+      directory
+        ? text
+            .replaceAll(directory, '[workspace]')
+            .replaceAll(directory.replaceAll('\\', '/'), '[workspace]')
+        : text,
+      environment,
+    );
   const log = makeLog(id, scrub);
   const flushTimer = setInterval(() => {
     void log.flush().catch(() => console.error('Deployment log flush failed; will retry.'));
@@ -70,17 +79,23 @@ export async function deploy(
     } else {
       directory = await mkdtemp(join(tmpdir(), 'deploygrid-'));
       await db.deployment.update({ where: { id }, data: { workspacePath: directory } });
-      log.append(`==> Cloning from ${d.repositoryUrl}\n`);
-      await clone(d.repositoryUrl, d.branch, directory, log.append);
-      const sha = await run('git', ['rev-parse', 'HEAD'], { cwd: directory });
-      log.append(`==> Checking out commit ${sha} in branch ${d.branch || 'repository default'}\n`);
-      for (const file of ['Dockerfile'])
-        if (!(await stat(join(directory, file))).isFile())
-          throw new Error(`Required root ${file} is missing`);
+      const repository = d.sourceType === 'GIT' ? join(directory, 'repository') : null;
+      if (repository) {
+        log.append(`==> Cloning from ${d.repositoryUrl}\n`);
+        await clone(d.repositoryUrl, d.branch, repository, log.append);
+        const sha = await run('git', ['rev-parse', 'HEAD'], { cwd: repository });
+        log.append(
+          `==> Checking out commit ${sha} in branch ${d.branch || 'repository default'}\n`,
+        );
+        await db.deployment.update({ where: { id }, data: { commitSha: sha } });
+      } else log.append(`==> Building an owned release from ${d.imageUrl}\n`);
+      const build = await prepareBuild(directory, repository, d, environment);
       image = imageName(p.id, id);
-      await db.deployment.update({ where: { id }, data: { commitSha: sha, imageTag: image } });
+      await db.deployment.update({ where: { id }, data: { imageTag: image } });
       await transition(id, 'BUILDING');
-      log.append('==> Building Docker image from repository Dockerfile\n');
+      log.append(
+        `==> Building ${d.serviceType === 'STATIC' ? 'static site' : build.runtime} release\n`,
+      );
       await run(
         'docker',
         [
@@ -88,15 +103,22 @@ export async function deploy(
           ...['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy']
             .filter((key) => process.env[key])
             .flatMap((key) => ['--build-arg', key]),
+          '--file',
+          build.dockerfile,
+          '--secret',
+          `id=deploygrid_env,src=${build.secret}`,
+          ...(build.noCache ? ['--no-cache'] : []),
+          ...(d.sourceType === 'IMAGE' ? ['--pull'] : []),
           '--progress',
           'plain',
           '-t',
           image,
           ...labels(p.id, id),
-          '.',
+          build.context,
         ],
         {
           cwd: directory,
+          env: { DOCKER_BUILDKIT: '1' },
           timeout: positiveInt(process.env.BUILD_TIMEOUT_MS, 600000),
           log: log.append,
         },

@@ -1,3 +1,30 @@
+# Service sources phase 2A verification — 2026-10-28
+
+- `pnpm typecheck` and `pnpm lint`: passed. Final frontend changes were linted and type-checked in the production web build.
+- `pnpm test`: **64 passed**, including path/image boundaries, real symlink containment, source configuration requirements, import/encryption and multiline literal redaction.
+- `pnpm test:integration`: **20 passed, one optional public-tunnel test skipped** (509.83 seconds), against a fresh isolated PostgreSQL database and queue. Actual Git, Docker, HTTP, database and Redis operations. All three migrations applied. No fixtures populated the normal workspace.
+- Five new source scenarios cover static build variables/SPA/assets/HEAD/method rejection, secret absence from image metadata/history/runtime mount, configuration-preserving rollback and owned-resource deletion; native Node auto-detection with build/runtime variables and PORT=10000; failed-build preservation and host-command isolation; traversal/symlink rejection; public image execution with source ownership preserved; and sanitized missing-folder errors. Some checks share a scenario.
+- `pnpm build`: all packages and production frontend passed. Final web bundle rebuilt after accessible labels and source-form validation fixes. Existing nonfatal Next ESLint-plugin warning remains.
+- `pnpm test:browser`: **3 passed** (3.1 minutes). Existing release/configuration/rollback/health/runtime flows remain covered. New scenario switches from an invalid image draft to Static Site, builds real assets with variables, opens the SPA URL in Chromium, checks type filters and persisted settings, and checks the create form at mobile width. No page errors in successful scenarios.
+- New screenshots inspected: `screenshots/phase2-static-create.png` and `screenshots/phase2-static-live.png`. The live screenshot is a real container response; the create image is an unsubmitted form.
+- Additive migration applied successfully to the existing local database without resetting data or changing the key. Normal `pnpm start` launched all processes; diagnostics returned database/redis/docker/worker=true and dashboard HTTP 200.
+
+## Issues found while executing this phase
+
+Native source files inherited restrictive clone permissions, so the generated non-root runtime initially failed to read server.mjs. The generated image now changes application ownership before switching users; native deployment passed afterwards. Source switching now discards inactive fields from the submitted payload, and new selects have explicit accessible names.
+
+Parallel frontend builds and Docker scenarios overwhelmed this shared runner. The three-release static scenario initially hit 240/360-second test deadlines. Heavy verification was then sequenced, and that scenario passed in 110.2 seconds; its test budget is 600 seconds while product build/readiness timeouts are unchanged. A fresh run also verified owned failed-image cleanup after an earlier long-running test process had cached the pre-fix module. The complete subsequent integration run passed.
+
+An initial browser pass exposed a five-second log assertion that expired while Docker output was still loading. The bounded test wait is now 15 seconds; the final full browser run passed. Runtime values were already redacted as whole strings; multiline values are now also masked when persisted one line at a time (unit-tested).
+
+## Boundaries
+
+Browser Git fixtures use the explicitly guarded isolated harness; production never accepts local repository paths. Real public branch discovery succeeded with `git ls-remote` and through the normal frontend/API against Zaidzezo/test; its returned main branch was selected in the inspected create-form screenshot. The optional normal-worker public-source smoke is documented in SERVICE-SOURCES.md; its separate result is recorded if executed below.
+
+Full Render parity is not claimed. Provider OAuth/tokens, other service types, additional generated runtimes, authenticated workspaces, cancellation/webhooks, custom TLS domains, replicas/disks/previews and shell remain open. Windows execution and public tunnel connectivity are not certified by this Linux run. See KNOWN-GAPS.md and ../AUDIT.md.
+
+---
+
 # Render parity phase 1 verification — 2026-10-28
 
 - `pnpm typecheck`: passed for changed application/engine/shared code; final check also covers new tests.

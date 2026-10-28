@@ -75,7 +75,11 @@ export async function startCandidate(
       'no-new-privileges:true',
       '-p',
       `127.0.0.1::${port}`,
-      ...Object.keys(environment).flatMap((name) => ['--env', name]),
+      '--env',
+      `PORT=${port}`,
+      ...Object.keys(environment)
+        .filter((name) => name !== 'PORT')
+        .flatMap((name) => ['--env', name]),
       image,
     ],
     { env: environment },

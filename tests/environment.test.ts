@@ -37,4 +37,10 @@ describe('runtime configuration security', () => {
     });
     expect(redact('token=secret', { API_TOKEN: 'secret' })).toBe('token=[REDACTED]');
   });
+  it('masks multiline values even when process output is persisted one line at a time', () => {
+    const values = { TOKEN: 'first-fragment\nsecond-fragment' };
+    expect(redact('token=first-fragment', values)).toBe('token=[REDACTED]');
+    expect(redact('second-fragment', values)).toBe('[REDACTED]');
+    expect(redact('first-fragment\nsecond-fragment', values)).toBe('[REDACTED]');
+  });
 });

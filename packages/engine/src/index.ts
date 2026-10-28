@@ -12,3 +12,5 @@ export * from './sharing.js';
 export * from './recovery.js';
 
 export { Worker } from 'bullmq';
+
+export * from './build.js';

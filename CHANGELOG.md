@@ -1,5 +1,14 @@
 # Changelog
 
+## Service sources — phase 2A
+
+- Added static publication with publish-directory validation, SPA rewrites, MIME/cache headers, dotfile/traversal denial and real Docker serving.
+- Added generated Node builds and public image releases, optional root/Dockerfile paths and real Git branch discovery.
+- Added immutable build/source snapshots and additive database migration; rollback reuses the original built release and settings.
+- Added BuildKit-mounted environment variables for builds without plaintext build arguments; caches are bypassed for configured variables.
+- Container PORT is injected from the configured port. Service listings/settings now reflect actual types and source choices.
+
+
 ## Render parity — phase 1
 
 - Service creation can atomically save encrypted runtime variables and reserve the first deployment, then navigate directly to streaming deployment logs.

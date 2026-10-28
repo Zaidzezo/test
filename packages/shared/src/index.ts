@@ -19,6 +19,29 @@ export function canonicalRepository(value: string): string {
     throw new Error('Invalid repository path');
   return 'https://github.com' + path;
 }
+export const relativePathSchema = z
+  .string()
+  .max(240)
+  .regex(/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/)
+  .refine(
+    (value) => !value.split('/').some((p) => p === '.' || p === '..' || p.toLowerCase() === '.git'),
+    'Use a relative path without traversal',
+  );
+export const imageReferenceSchema = z
+  .string()
+  .max(300)
+  .regex(
+    /^(?:(?:docker\.io|ghcr\.io)\/)?[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[a-f0-9]{64})?$/,
+    'Use a public Docker Hub or GHCR image reference without credentials',
+  )
+  .refine((value) => {
+    const host = value.split('/')[0];
+    return !value.includes('/') || !host.includes('.') || ['docker.io', 'ghcr.io'].includes(host);
+  }, 'Only public Docker Hub and GHCR registries are supported');
+export const commandSchema = z
+  .string()
+  .max(2048)
+  .refine((value) => !/[\0\r\n]/.test(value), 'Commands must fit on one line');
 export const projectSchema = z.object({
   name: z.string().trim().min(1).max(80),
   slug: z
@@ -26,14 +49,27 @@ export const projectSchema = z.object({
     .min(1)
     .max(63)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  repositoryUrl: z.string().transform((v, ctx) => {
-    try {
-      return canonicalRepository(v);
-    } catch {
-      ctx.addIssue({ code: 'custom', message: 'Use https://github.com/owner/repository' });
-      return z.NEVER;
-    }
-  }),
+  serviceType: z.enum(['WEB', 'STATIC']).default('WEB'),
+  sourceType: z.enum(['GIT', 'IMAGE']).default('GIT'),
+  runtime: z.enum(['DOCKER', 'NODE', 'AUTO']).default('DOCKER'),
+  imageUrl: imageReferenceSchema.or(z.literal('')).default(''),
+  rootDirectory: relativePathSchema.or(z.literal('')).default(''),
+  dockerfilePath: relativePathSchema.default('Dockerfile'),
+  buildCommand: commandSchema.default(''),
+  startCommand: commandSchema.default(''),
+  publishDirectory: relativePathSchema.default('dist'),
+  spaFallback: z.boolean().default(false),
+  repositoryUrl: z
+    .string()
+    .default('')
+    .transform((v, ctx) => {
+      try {
+        return v === '' ? '' : canonicalRepository(v);
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'Use https://github.com/owner/repository' });
+        return z.NEVER;
+      }
+    }),
   branch: z
     .string()
     .max(160)
@@ -84,35 +120,36 @@ export const positiveInt = (v: string | undefined, fallback: number) =>
     .positive()
     .parse(v ?? fallback);
 
-export const variableNameSchema = z
+export const variableKeySchema = z
   .string()
   .max(128)
-  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
-  .refine(
-    (name) =>
-      !(
-        /^(LD_|DYLD_|DOCKER_|GIT_|DEPLOYGRID_)/i.test(name) ||
-        [
-          'PATH',
-          'HOME',
-          'USERPROFILE',
-          'SYSTEMROOT',
-          'COMSPEC',
-          'PATHEXT',
-          'TEMP',
-          'TMP',
-          'BASH_ENV',
-          'ENV',
-          'NODE_OPTIONS',
-          'NODE_PATH',
-          'HTTP_PROXY',
-          'HTTPS_PROXY',
-          'ALL_PROXY',
-          'NO_PROXY',
-        ].includes(name.toUpperCase())
-      ),
-    'This runtime variable is reserved.',
-  );
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const variableNameSchema = variableKeySchema.refine(
+  (name) =>
+    !(
+      /^(LD_|DYLD_|DOCKER_|GIT_|DEPLOYGRID_)/i.test(name) ||
+      [
+        'PORT',
+        'PATH',
+        'HOME',
+        'USERPROFILE',
+        'SYSTEMROOT',
+        'COMSPEC',
+        'PATHEXT',
+        'TEMP',
+        'TMP',
+        'BASH_ENV',
+        'ENV',
+        'NODE_OPTIONS',
+        'NODE_PATH',
+        'HTTP_PROXY',
+        'HTTPS_PROXY',
+        'ALL_PROXY',
+        'NO_PROXY',
+      ].includes(name.toUpperCase())
+    ),
+  'This runtime variable is reserved.',
+);
 export const variableSchema = z.object({
   name: variableNameSchema,
   value: z
@@ -133,6 +170,15 @@ export const variablesSchema = z
       names.add(variable.name);
     }
   });
+export function checkServiceConfiguration(value: z.infer<typeof projectSchema>) {
+  if (value.sourceType === 'GIT' && !value.repositoryUrl)
+    throw new AppError('VALIDATION_ERROR', 'Use https://github.com/owner/repository');
+  if (value.sourceType === 'IMAGE' && (!value.imageUrl || value.serviceType !== 'WEB'))
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'Existing images require a Web Service and a public image reference',
+    );
+}
 export const createServiceSchema = projectSchema.extend({
   variables: variablesSchema.default([]),
   deploy: z.boolean().default(false),
@@ -140,7 +186,7 @@ export const createServiceSchema = projectSchema.extend({
 export const environmentUpdateSchema = z
   .object({
     variables: variablesSchema,
-    remove: z.array(variableNameSchema).max(50).default([]),
+    remove: z.array(variableKeySchema).max(50).default([]),
     action: z.enum(['save', 'deploy']).default('save'),
   })
   .superRefine((value, ctx) => {

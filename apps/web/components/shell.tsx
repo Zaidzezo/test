@@ -11,7 +11,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
-  ChevronDown,
   ChevronRight,
   Globe2,
   Activity,
@@ -82,7 +81,6 @@ function Frame({ children }: { children: React.ReactNode }) {
             <strong>Personal workspace</strong>
             <small>Self-hosted infrastructure</small>
           </div>
-          <ChevronDown size={14} />
         </div>
         {service ? (
           <>
@@ -90,7 +88,9 @@ function Frame({ children }: { children: React.ReactNode }) {
               <ArrowLeft size={14} />
               All services
             </Link>
-            <div className="nav-label">WEB SERVICE</div>
+            <div className="nav-label">
+              {q.data?.serviceType === 'STATIC' ? 'STATIC SITE' : 'WEB SERVICE'}
+            </div>
             <div className="sidebar-service">
               <span className="service-icon">
                 <Globe2 size={17} />

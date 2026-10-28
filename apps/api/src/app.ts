@@ -3,7 +3,12 @@ import type { ServerResponse } from 'node:http';
 import cors from '@fastify/cors';
 import { z, ZodError } from 'zod';
 import { db, Prisma } from '@deploygrid/database';
-import { projectSchema, createServiceSchema, AppError } from '@deploygrid/shared';
+import {
+  projectSchema,
+  createServiceSchema,
+  checkServiceConfiguration,
+  AppError,
+} from '@deploygrid/shared';
 import {
   reserveDeployment,
   reserveDeploymentInTransaction,
@@ -95,6 +100,8 @@ export async function buildApp() {
   );
   app.post('/api/projects', async (req, reply) => {
     const { variables, deploy, ...data } = createServiceSchema.parse(req.body);
+    if (data.serviceType === 'STATIC') data.runtime = 'NODE';
+    checkServiceConfiguration(data);
     const { project, deployment } = await db.$transaction(async (tx) => {
       const project = await tx.project.create({ data });
       if (variables.length)
@@ -130,12 +137,45 @@ export async function buildApp() {
   app.patch('/api/projects/:id', async (req) => {
     const { id } = params.parse(req.params);
     const data = projectSchema.omit({ slug: true }).partial().parse(req.body);
-    const result = await db.project.updateMany({
-      where: { id, activeDeploymentId: null, operationToken: null },
-      data,
+    return db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id"=${id} FOR UPDATE`;
+      const previous = await tx.project.findUniqueOrThrow({ where: { id } });
+      if (previous.activeDeploymentId || previous.operationToken)
+        throw new AppError('PROJECT_BUSY', 'Service is busy', 409);
+      if (previous.serviceType === 'STATIC') data.runtime = 'NODE';
+      checkServiceConfiguration(projectSchema.parse({ ...previous, ...data }));
+      if (data.serviceType && data.serviceType !== previous.serviceType)
+        throw new AppError('IMMUTABLE_TYPE', 'Create a new service to change its type');
+      return projectDto(await tx.project.update({ where: { id }, data }));
     });
-    if (!result.count) throw new AppError('PROJECT_BUSY', 'Project is missing or busy', 409);
-    return projectDto(await db.project.findUniqueOrThrow({ where: { id } }));
+  });
+  app.post('/api/repositories/branches', async (req) => {
+    const { repositoryUrl } = projectSchema.pick({ repositoryUrl: true }).parse(req.body);
+    if (!repositoryUrl)
+      throw new AppError('VALIDATION_ERROR', 'Enter a public GitHub repository URL');
+    let result: string;
+    try {
+      result = await run(
+        'git',
+        ['ls-remote', '--symref', '--', repositoryUrl, 'HEAD', 'refs/heads/*'],
+        { timeout: 15000 },
+      );
+    } catch {
+      throw new AppError(
+        'REPOSITORY_UNAVAILABLE',
+        'Cannot read this public repository. Check its URL and network connection.',
+        422,
+      );
+    }
+    result = result.replaceAll('\r', '');
+    const branches = [
+      ...new Set([...result.matchAll(/^[a-f0-9]+\trefs\/heads\/(.+)$/gm)].map((m) => m[1])),
+    ]
+      .sort()
+      .slice(0, 200);
+    if (!branches.length)
+      throw new AppError('EMPTY_REPOSITORY', 'No branches found in this repository', 422);
+    return { branches, defaultBranch: /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(result)?.[1] ?? null };
   });
   app.delete('/api/projects/:id', async (req, reply) => {
     const { id } = params.parse(req.params);

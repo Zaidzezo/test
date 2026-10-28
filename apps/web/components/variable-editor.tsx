@@ -15,8 +15,9 @@ export function VariableEditor({
     <fieldset className="variable-editor">
       <legend>Environment variables</legend>
       <p className="help">
-        Encrypted before saving. Available at runtime, including the first deployment. Docker build
-        secrets require separate configuration.
+        Encrypted before saving. Available at runtime and to Node/static build commands. Dockerfiles
+        can opt into the deploygrid_env secret mount. Static assets are public: never embed
+        credentials.
       </p>
       {variables.map((variable, index) => (
         <div className="environment-inputs" key={index}>

@@ -16,6 +16,16 @@ export interface Deployment {
   cleanupError: string | null;
 }
 export interface Project {
+  serviceType: 'WEB' | 'STATIC';
+  sourceType: 'GIT' | 'IMAGE';
+  runtime: 'AUTO' | 'NODE' | 'DOCKER';
+  imageUrl: string;
+  rootDirectory: string;
+  dockerfilePath: string;
+  buildCommand: string;
+  startCommand: string;
+  publishDirectory: string;
+  spaFallback: boolean;
   id: string;
   name: string;
   slug: string;

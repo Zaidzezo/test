@@ -4,7 +4,7 @@ import { db } from '@deploygrid/database';
 import {
   AppError,
   variableSchema,
-  variableNameSchema,
+  variableKeySchema,
   environmentUpdateSchema,
 } from '@deploygrid/shared';
 import {
@@ -37,7 +37,7 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
     return reply.code(200).send({ name: variable.name, configured: true });
   });
   app.delete('/api/projects/:id/environment/:name', async (req, reply) => {
-    const p = params.extend({ name: variableNameSchema }).parse(req.params);
+    const p = params.extend({ name: variableKeySchema }).parse(req.params);
     await deleteVariable(p.id, p.name);
     return reply.code(204).send();
   });
